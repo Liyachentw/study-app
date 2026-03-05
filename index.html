@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="讀書助理">
 <meta name="theme-color" content="#0d0d1a">
 <title>⚖️ 法律讀書助理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -276,6 +277,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <button class="ptab active" onclick="switchPlan('daily')">📅 每日</button>
       <button class="ptab" onclick="switchPlan('weekly')">🗓 週表</button>
       <button class="ptab" onclick="switchPlan('english')">🗣 英文</button>
+    </div>
+    <div style="padding:6px 14px 0;display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="syncFromSheets()" style="font-size:.72rem;padding:5px 11px;border-radius:20px;background:rgba(94,207,138,0.12);color:var(--green);border:none;cursor:pointer;font-weight:600;font-family:'Noto Sans TC',sans-serif" id="sheetsSyncBtn">🔄 同步 Sheets</button>
+      <label style="font-size:.72rem;padding:5px 11px;border-radius:20px;background:rgba(120,184,248,0.12);color:var(--blue);cursor:pointer;font-weight:600;font-family:'Noto Sans TC',sans-serif">
+        📥 匯入 Excel
+        <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
+      </label>
     </div>
     <div class="pscroll" id="planScroll"></div>
   </div>
@@ -792,6 +800,255 @@ async function send(){
 }
 function ck(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
 function ag(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+
+
+
+// ═══ GOOGLE SHEETS SYNC ═══
+const SHEETS_ID = '1XaYlX_bJiflyEvxA9p_f9Ynye7wsymDVeG7p5rPfdXw';
+const SHEETS_BASE = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:json&sheet=`;
+
+async function fetchSheet(sheetName){
+  const url = SHEETS_BASE + encodeURIComponent(sheetName);
+  const r = await fetch(url);
+  const text = await r.text();
+  // Google wraps response in /*O_o*/ google.visualization.Query.setResponse({...});
+  const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\);?$/s)[1]);
+  return json.table;
+}
+
+function gvizVal(cell){
+  if(!cell) return '';
+  if(cell.v instanceof Date) return cell.v;
+  return cell.v !== null && cell.v !== undefined ? cell.v : '';
+}
+
+async function syncFromSheets(){
+  const btn = document.getElementById('sheetsSyncBtn');
+  const orig = btn.textContent;
+  btn.innerHTML = '<span class="sync-spin">⟳</span> 同步中...';
+  btn.disabled = true;
+  const DLABELS_LOCAL = ['日','一','二','三','四','五','六'];
+  let imported = {plan:0, weekly:0, english:0};
+  try {
+    // ── DailyPlan ──
+    try {
+      const table = await fetchSheet('DailyPlan');
+      if(table && table.rows){
+        table.rows.forEach(row => {
+          const cols = row.c || [];
+          let dateVal = gvizVal(cols[0]);
+          if(!dateVal) return;
+          let dateStr = '';
+          if(dateVal instanceof Date){
+            dateStr = dateVal.getFullYear()+'-'+String(dateVal.getMonth()+1).padStart(2,'0')+'-'+String(dateVal.getDate()).padStart(2,'0');
+          } else {
+            const s = String(dateVal).trim();
+            const m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if(m) dateStr = m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+            else return;
+          }
+          const d = new Date(dateStr+'T00:00:00');
+          const entry = {
+            date: dateStr,
+            dow: DLABELS_LOCAL[d.getDay()],
+            main: String(gvizVal(cols[2])||'').trim() || '─',
+            mainDone: false,
+            sub: String(gvizVal(cols[4])||'').trim() || '—',
+            subDone: false,
+            hrs: String(gvizVal(cols[6])||'').trim(),
+            note: String(gvizVal(cols[7])||'').trim(),
+          };
+          if(!entry.sub) entry.sub = '—';
+          const idx = S.plan.findIndex(p => p.date === dateStr);
+          if(idx >= 0){
+            entry.mainDone = S.plan[idx].mainDone;
+            entry.subDone = S.plan[idx].subDone;
+            S.plan[idx] = entry;
+          } else {
+            S.plan.push(entry);
+          }
+          imported.plan++;
+        });
+        S.plan.sort((a,b)=>a.date.localeCompare(b.date));
+      }
+    } catch(e){ console.warn('DailyPlan sync failed:', e); }
+
+    // ── Weekly_Schedule ──
+    try {
+      const table = await fetchSheet('Weekly_Schedule');
+      if(table && table.rows && table.cols){
+        const headers = table.cols.map(c => c.label || '');
+        headers.forEach((h, ci) => {
+          const wkIdx = S.weekly.findIndex(w =>
+            w.col === h || w.col.replace(/[🔥🌿]/g,'') === h.replace(/[🔥🌿]/g,'')
+          );
+          if(wkIdx < 0) return;
+          const colRows = [];
+          table.rows.forEach(row => {
+            const cell = (row.c||[])[ci];
+            const val = String(gvizVal(cell)||'').trim();
+            if(val) colRows.push(val);
+          });
+          if(colRows.length > 0){
+            S.weekly[wkIdx].rows = colRows;
+            imported.weekly++;
+          }
+        });
+      }
+    } catch(e){ console.warn('Weekly sync failed:', e); }
+
+    // ── English ──
+    try {
+      const table = await fetchSheet('English');
+      if(table && table.rows){
+        table.rows.forEach(row => {
+          const cols = row.c || [];
+          const day = parseInt(gvizVal(cols[0]));
+          if(isNaN(day)) return;
+          const entry = {
+            day,
+            topic: String(gvizVal(cols[1])||'').trim(),
+            listen: String(gvizVal(cols[2])||'').trim(),
+            shadow: String(gvizVal(cols[3])||'').trim(),
+            speak: String(gvizVal(cols[4])||'').trim(),
+          };
+          const idx = S.english.findIndex(e => e.day === day);
+          if(idx >= 0){ S.english[idx] = entry; }
+          else { S.english.push(entry); }
+          imported.english++;
+        });
+        S.english.sort((a,b)=>a.day-b.day);
+      }
+    } catch(e){ console.warn('English sync failed:', e); }
+
+    save();
+    renderToday();
+    renderPlan(curPlanTab);
+    btn.textContent = '✅ 同步完成';
+    setTimeout(()=>{ btn.textContent = orig; btn.disabled = false; }, 2500);
+    console.log('Sheets sync:', imported);
+  } catch(err){
+    console.error(err);
+    btn.textContent = '⚠️ 同步失敗';
+    setTimeout(()=>{ btn.textContent = orig; btn.disabled = false; }, 2500);
+    alert('同步失敗，請確認試算表已設為「知道連結的使用者可檢視」');
+  }
+}
+
+// ═══ EXCEL IMPORT ═══
+function importExcel(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  event.target.value = ''; // reset so same file can be re-imported
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array', cellDates:true});
+      let imported = {plan:0, weekly:0, english:0};
+
+      // ── DailyPlan sheet ──
+      if(wb.SheetNames.includes('DailyPlan')){
+        const ws = wb.Sheets['DailyPlan'];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        const DLABELS_LOCAL = ['日','一','二','三','四','五','六'];
+        rows.slice(1).forEach(r => {
+          if(!r[0]) return;
+          let dateStr = '';
+          if(r[0] instanceof Date){
+            const d = r[0];
+            dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          } else {
+            const s = String(r[0]).trim();
+            if(s.includes('T')) dateStr = s.slice(0,10);
+            else dateStr = s;
+          }
+          if(!dateStr.match(/\d{4}-\d{2}-\d{2}/)) return;
+          const d = new Date(dateStr+'T00:00:00');
+          const dow = DLABELS_LOCAL[d.getDay()];
+          const entry = {
+            date: dateStr, dow,
+            main: String(r[2]||'').trim() || '─',
+            mainDone: r[3]===true || r[3]==='TRUE' || r[3]==='true',
+            sub: String(r[4]||'').trim() || '—',
+            subDone: r[5]===true || r[5]==='TRUE' || r[5]==='true',
+            hrs: String(r[6]||'').trim(),
+            note: String(r[7]||'').trim()
+          };
+          if(!entry.sub) entry.sub = '—';
+          // Merge: if date exists update, else add
+          const idx = S.plan.findIndex(p => p.date === dateStr);
+          if(idx >= 0){
+            // keep done status, update content
+            entry.mainDone = S.plan[idx].mainDone;
+            entry.subDone = S.plan[idx].subDone;
+            S.plan[idx] = entry;
+          } else {
+            S.plan.push(entry);
+          }
+          imported.plan++;
+        });
+        S.plan.sort((a,b)=>a.date.localeCompare(b.date));
+      }
+
+      // ── Weekly_Schedule sheet ──
+      if(wb.SheetNames.includes('Weekly_Schedule')){
+        const ws = wb.Sheets['Weekly_Schedule'];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if(rows.length > 0){
+          const headers = rows[0]; // 週一, 週二, ...
+          const colMap = ['週一','週二','週三','週四🔥','週五','週六🔥','週日🌿'];
+          headers.forEach((h, ci) => {
+            const wkIdx = S.weekly.findIndex(w => w.col === h || w.col.replace(/[🔥🌿]/g,'') === String(h).replace(/[🔥🌿]/g,''));
+            if(wkIdx < 0) return;
+            const colRows = [];
+            rows.slice(1).forEach(r => {
+              const cell = String(r[ci]||'').trim();
+              if(cell) colRows.push(cell);
+            });
+            if(colRows.length > 0){
+              S.weekly[wkIdx].rows = colRows;
+              imported.weekly++;
+            }
+          });
+        }
+      }
+
+      // ── English sheet ──
+      if(wb.SheetNames.includes('English')){
+        const ws = wb.Sheets['English'];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        rows.slice(1).forEach(r => {
+          if(!r[0]) return;
+          const day = parseInt(r[0]);
+          if(isNaN(day)) return;
+          const entry = {
+            day,
+            topic: String(r[1]||'').trim(),
+            listen: String(r[2]||'').trim(),
+            shadow: String(r[3]||'').trim(),
+            speak: String(r[4]||'').trim(),
+          };
+          const idx = S.english.findIndex(e => e.day === day);
+          if(idx >= 0){ S.english[idx] = entry; }
+          else { S.english.push(entry); }
+          imported.english++;
+        });
+        S.english.sort((a,b)=>a.day-b.day);
+      }
+
+      save();
+      renderToday();
+      renderPlan(curPlanTab);
+      const msg = `✅ 匯入完成！\n每日計畫：${imported.plan} 筆\n週時間表：${imported.weekly} 欄\n英文計畫：${imported.english} 筆`;
+      alert(msg);
+    } catch(err){
+      console.error(err);
+      alert('匯入失敗，請確認檔案格式正確\n(' + err.message + ')');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
 
 // ═══ GOOGLE DRIVE ═══
 const CLIENT_ID='958195742308-v5579d34r8imr658bnaf24un1d78jqln.apps.googleusercontent.com';
