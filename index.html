@@ -330,7 +330,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="sh-body">
       <div class="fl"><label class="flbl">日期</label><input class="finp" id="dpDate" type="date"></div>
       <div class="fl"><label class="flbl">主科</label><input class="finp" id="dpMain" placeholder="例：刑法總則"></div>
-      <div class="fl"><label class="flbl">副科（無填 —）</label><input class="finp" id="dpSub" placeholder="例：行政法 或 —"></div>
+      <div class="fl"><label class="flbl">副科1（無填 —）</label><input class="finp" id="dpSub" placeholder="例：行政法 或 —"></div>
+      <div class="fl"><label class="flbl">副科2（無填 —）</label><input class="finp" id="dpSub2" placeholder="例：刑法 或 —"></div>
       <div class="fl"><label class="flbl">建議時數</label><input class="finp" id="dpHrs" placeholder="例：2–3h"></div>
       <div class="fl"><label class="flbl">備註（衝刺日填 🔥）</label><input class="finp" id="dpNote" placeholder="可空白"></div>
       <div class="br">
@@ -477,6 +478,7 @@ function openDpSheet(idx){
     document.getElementById('dpDate').value=todayStr();
     document.getElementById('dpMain').value='';
     document.getElementById('dpSub').value='—';
+    document.getElementById('dpSub2').value='—';
     document.getElementById('dpHrs').value='';
     document.getElementById('dpNote').value='';
   } else {
@@ -484,6 +486,7 @@ function openDpSheet(idx){
     document.getElementById('dpDate').value=p.date;
     document.getElementById('dpMain').value=p.main;
     document.getElementById('dpSub').value=p.sub;
+    document.getElementById('dpSub2').value=p.sub2||'—';
     document.getElementById('dpHrs').value=p.hrs;
     document.getElementById('dpNote').value=p.note;
   }
@@ -497,6 +500,7 @@ function saveDp(){
     date,dow:dateDow(date),
     main,mainDone:false,
     sub:document.getElementById('dpSub').value.trim()||'—',subDone:false,
+    sub2:document.getElementById('dpSub2').value.trim()||'—',sub2Done:false,
     hrs:document.getElementById('dpHrs').value.trim(),
     note:document.getElementById('dpNote').value.trim()
   };
@@ -570,7 +574,7 @@ function renderToday(){
   const doneNames=new Set(logs.map(l=>l.subjectName));
   let total=0,hrs='─';
   if(todayPlan){
-    total=(todayPlan.main!=='—'?1:0)+(todayPlan.sub!=='—'?1:0)+1;
+    total=(todayPlan.main&&todayPlan.main!=='—'&&todayPlan.main!=='─'?1:0)+(todayPlan.sub&&todayPlan.sub!=='—'?1:0)+(todayPlan.sub2&&todayPlan.sub2!=='—'?1:0)+1;
     hrs=todayPlan.hrs||'─';
   }
   const done=doneNames.size;
@@ -598,15 +602,20 @@ function renderToday(){
   }
   const mainLog=logs.find(l=>l.subjectName===todayPlan.main);
   const subLog=logs.find(l=>l.subjectName===todayPlan.sub);
+  const sub2Log=logs.find(l=>l.subjectName===todayPlan.sub2);
   const engLog=logs.find(l=>l.subjectName==='英文');
   let h='';
-  if(todayPlan.main!=='—'){
+  if(todayPlan.main&&todayPlan.main!=='—'&&todayPlan.main!=='─'){
     const ok=!!mainLog;
     h+=`<div><div class="sr"><div class="sdot" style="background:var(--red)"></div><div class="sname">${todayPlan.main}</div><span class="pill pill-main" style="margin-right:5px">主科</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&mainLog?`<div class="done-range">📖 ${mainLog.range}</div>`:''}</div>`;
   }
-  if(todayPlan.sub!=='—'){
+  if(todayPlan.sub&&todayPlan.sub!=='—'){
     const ok=!!subLog;
-    h+=`<div><div class="sr"><div class="sdot" style="background:var(--blue)"></div><div class="sname">${todayPlan.sub}</div><span class="pill pill-sub" style="margin-right:5px">副科</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&subLog?`<div class="done-range">📖 ${subLog.range}</div>`:''}</div>`;
+    h+=`<div><div class="sr"><div class="sdot" style="background:var(--blue)"></div><div class="sname">${todayPlan.sub}</div><span class="pill pill-sub" style="margin-right:5px">副科1</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&subLog?`<div class="done-range">📖 ${subLog.range}</div>`:''}</div>`;
+  }
+  if(todayPlan.sub2&&todayPlan.sub2!=='—'){
+    const ok=!!sub2Log;
+    h+=`<div><div class="sr"><div class="sdot" style="background:var(--orange)"></div><div class="sname">${todayPlan.sub2}</div><span class="pill" style="background:var(--orange-dim);color:var(--orange);margin-right:5px">副科2</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&sub2Log?`<div class="done-range">📖 ${sub2Log.range}</div>`:''}</div>`;
   }
   const engOk=!!engLog;
   h+=`<div><div class="sr"><div class="sdot" style="background:var(--purple)"></div><div class="sname">英文練習</div><span class="pill pill-eng" style="margin-right:5px">英文</span><div class="pill ${engOk?'pill-done':'pill-todo'}">${engOk?'✓ 完成':'待讀'}</div></div>${engOk&&engLog?`<div class="done-range">📖 ${engLog.range}</div>`:''}</div>`;
@@ -642,7 +651,7 @@ function renderDaily(el){
             </div>
             <div class="dp-info">
               <div class="dp-main-name">${p.main} ${p.note==='🔥'?'<span class="tag tag-fire">🔥</span>':''}</div>
-              <div class="dp-sub-name">${p.sub!=='—'?`副：${p.sub}　`:''}${p.hrs}</div>
+              <div class="dp-sub-name">${p.sub&&p.sub!=='—'?`副1：${p.sub}　`:''}${p.sub2&&p.sub2!=='—'?`副2：${p.sub2}　`:''}${p.hrs}</div>
             </div>
             <div class="dp-badges">
               <button class="dp-check ${p.mainDone?'on':''}" onclick="toggleDpDone(${i},'main')">${p.mainDone?'✓':''}</button>
@@ -744,10 +753,11 @@ function initChat(){
   if(!tp){msg+='今天尚未安排計畫。可以到「計畫」頁新增，或直接告訴我你今天讀了什麼！';}
   else{
     msg+=`今天週${tp.dow}，建議讀書 ${tp.hrs}${tp.note==='🔥'?' — 衝刺日 💪':''}。\n\n今日計畫：\n`;
-    if(tp.main!=='—')msg+=`${done.has(tp.main)?'✅':'📌'} 主科：${tp.main}\n`;
-    if(tp.sub!=='—')msg+=`${done.has(tp.sub)?'✅':'📌'} 副科：${tp.sub}\n`;
+    if(tp.main&&tp.main!=='—')msg+=`${done.has(tp.main)?'✅':'📌'} 主科：${tp.main}\n`;
+    if(tp.sub&&tp.sub!=='—')msg+=`${done.has(tp.sub)?'✅':'📌'} 副科1：${tp.sub}\n`;
+    if(tp.sub2&&tp.sub2!=='—')msg+=`${done.has(tp.sub2)?'✅':'📌'} 副科2：${tp.sub2}\n`;
     msg+=`${done.has('英文')?'✅':'📌'} 英文練習\n`;
-    const pending=[tp.main,tp.sub,'英文'].filter(s=>s!=='—'&&!done.has(s));
+    const pending=[tp.main,tp.sub,tp.sub2,'英文'].filter(s=>s&&s!=='—'&&!done.has(s));
     msg+=pending.length?`\n還剩 ${pending.length} 個沒完成，加油！讀完跟我說 😊`:`\n今天全完成了！🎉`;
   }
   addMsg('ai',msg);updateChips();
@@ -756,7 +766,7 @@ function updateChips(){
   const today=todayStr();const tp=S.plan.find(p=>p.date===today);
   const done=new Set(S.logs.filter(l=>l.date===today).map(l=>l.subjectName));
   const chips=[];
-  if(tp)[tp.main,tp.sub,'英文'].filter(s=>s!=='—'&&!done.has(s)).slice(0,2).forEach(s=>chips.push(`我讀完${s}了`));
+  if(tp)[tp.main,tp.sub,tp.sub2,'英文'].filter(s=>s&&s!=='—'&&!done.has(s)).slice(0,3).forEach(s=>chips.push(`我讀完${s}了`));
   chips.push('今天進度？','明天讀什麼？','幫我加油 💪');
   document.getElementById('qchips').innerHTML=chips.map(c=>`<div class="chip" onclick="chipTap('${c}')">${c}</div>`).join('');
 }
@@ -780,7 +790,7 @@ async function send(){
   const today=todayStr();const tp=S.plan.find(p=>p.date===today);
   const logs=S.logs.filter(l=>l.date===today);const done=new Set(logs.map(l=>l.subjectName));
   const sys=`你是親切的法律考試讀書助理，用繁體中文回覆，像朋友一樣簡潔溫暖。
-今天 ${today}（週${DLABELS[DOW]}）計畫：主科：${tp?.main||'未安排'}${tp?.main&&done.has(tp.main)?'（完成）':''}，副科：${tp?.sub||'無'}${tp?.sub&&done.has(tp.sub)?'（完成）':''}，英文：${done.has('英文')?'完成':'未完成'}，建議：${tp?.hrs||'─'}${tp?.note==='🔥'?'（衝刺日）':''}
+今天 ${today}（週${DLABELS[DOW]}）計畫：主科：${tp?.main||'未安排'}${tp?.main&&done.has(tp.main)?'（完成）':''}，副科1：${tp?.sub||'無'}${tp?.sub&&done.has(tp.sub)?'（完成）':''}，副科2：${tp?.sub2||'無'}${tp?.sub2&&done.has(tp.sub2)?'（完成）':''}，英文：${done.has('英文')?'完成':'未完成'}，建議：${tp?.hrs||'─'}${tp?.note==='🔥'?'（衝刺日）':''}
 【記錄格式】當用戶說讀完某科目，在回覆結尾加：[RECORD:科目名稱|讀的範圍|備註]，備註可空。給鼓勵並說明還剩什麼。`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[...S.chat.slice(-12).map(m=>({role:m.role,content:m.content})),{role:'user',content:text}]})});
@@ -972,16 +982,19 @@ function importExcel(event){
             mainDone: r[3]===true || r[3]==='TRUE' || r[3]==='true',
             sub: String(r[4]||'').trim() || '—',
             subDone: r[5]===true || r[5]==='TRUE' || r[5]==='true',
-            hrs: String(r[6]||'').trim(),
-            note: String(r[7]||'').trim()
+            sub2: String(r[6]||'').trim() || '—',
+            sub2Done: r[7]===true || r[7]==='TRUE' || r[7]==='true',
+            hrs: String(r[8]||'').trim(),
+            note: String(r[9]||'').trim()
           };
           if(!entry.sub) entry.sub = '—';
+          if(!entry.sub2) entry.sub2 = '—';
           // Merge: if date exists update, else add
           const idx = S.plan.findIndex(p => p.date === dateStr);
           if(idx >= 0){
-            // keep done status, update content
             entry.mainDone = S.plan[idx].mainDone;
             entry.subDone = S.plan[idx].subDone;
+            entry.sub2Done = S.plan[idx].sub2Done||false;
             S.plan[idx] = entry;
           } else {
             S.plan.push(entry);
