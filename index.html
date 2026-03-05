@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="讀書助理">
+<meta name="theme-color" content="#0d0d1a">
+<title>⚖️ 法律讀書助理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0d1a;--bg2:#13131f;--bg3:#1a1a2e;--surface:#21213a;
+  --border:rgba(255,255,255,0.07);--text:#ede9e0;--text2:#8a87a0;
+  --gold:#e8b86d;--gold2:#f5d28a;--gold-dim:rgba(232,184,109,0.13);
+  --green:#5ecf8a;--green-dim:rgba(94,207,138,0.12);
+  --red:#f07878;--red-dim:rgba(240,120,120,0.12);
+  --blue:#78b8f8;--blue-dim:rgba(120,184,248,0.12);
+  --purple:#c090f0;--purple-dim:rgba(192,144,240,0.12);
+  --orange:#f0a060;--orange-dim:rgba(240,160,96,0.12);
+  --safe-b:env(safe-area-inset-bottom,16px);--r:18px;--rs:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif}
+#app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:0 auto}
+
+.sbar{padding:10px 18px 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.appname{font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:700;color:var(--gold);letter-spacing:.1em}
+
+.pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(16px);transition:all .22s cubic-bezier(.4,0,.2,1)}
+.page.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.pscroll{flex:1;overflow-y:auto;padding:10px 14px 16px;-webkit-overflow-scrolling:touch}
+.pscroll::-webkit-scrollbar{display:none}
+
+.bnav{flex-shrink:0;display:flex;background:var(--bg2);border-top:1px solid var(--border);padding-bottom:var(--safe-b)}
+.nbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 7px;border:none;background:transparent;cursor:pointer;color:var(--text2);transition:all .18s;font-family:'Noto Sans TC',sans-serif}
+.nbtn .ico{font-size:1.3rem;line-height:1;transition:transform .18s}
+.nbtn .lbl{font-size:.62rem;font-weight:500}
+.nbtn.active{color:var(--gold)}
+.nbtn.active .ico{transform:scale(1.15)}
+
+.card{background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);margin-bottom:10px;overflow:hidden}
+
+.sh{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px}
+.sh-title{font-size:.88rem;font-weight:600}
+.sh-btn{font-size:.72rem;padding:5px 11px;border-radius:20px;border:none;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-weight:600;background:var(--gold-dim);color:var(--gold);transition:all .15s}
+.sh-btn:hover,.sh-btn:active{background:var(--gold);color:var(--bg)}
+.sh-btn-red{background:var(--red-dim);color:var(--red)}
+.sh-btn-red:hover{background:var(--red);color:white}
+
+/* Hero */
+.hero{padding:12px 0 6px}
+.hero-date{font-family:'Noto Serif TC',serif;font-size:1.7rem;font-weight:700;line-height:1.15}
+.hero-sub{font-size:.8rem;color:var(--text2);margin-top:3px;margin-bottom:14px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.sbox{background:var(--bg2);border-radius:var(--rs);border:1px solid var(--border);padding:12px 8px;text-align:center}
+.snum{font-family:'Noto Serif TC',serif;font-size:1.7rem;font-weight:700;line-height:1;color:var(--gold)}
+.slbl{font-size:.64rem;color:var(--text2);margin-top:3px}
+
+.ring-wrap{display:flex;align-items:center;gap:14px;padding:14px}
+.ring-pct{font-family:'Noto Serif TC',serif;font-size:2rem;font-weight:700;color:var(--gold);line-height:1}
+.ring-msg{font-size:.78rem;color:var(--text2);margin-top:4px}
+
+.sr{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)}
+.sr:last-child{border-bottom:none}
+.sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.sname{flex:1;font-size:.88rem;font-weight:500}
+.pill{font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:20px;letter-spacing:.03em}
+.pill-done{background:var(--green-dim);color:var(--green)}
+.pill-todo{background:var(--gold-dim);color:var(--gold)}
+.pill-main{background:var(--red-dim);color:var(--red)}
+.pill-sub{background:var(--blue-dim);color:var(--blue)}
+.pill-eng{background:var(--purple-dim);color:var(--purple)}
+.done-range{padding:3px 14px 9px 33px;font-size:.74rem;color:var(--text2)}
+
+.schedr{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.schedr:last-child{border-bottom:none}
+.scht{font-family:'Noto Serif TC',serif;font-size:.82rem;font-weight:700;color:var(--gold);min-width:80px}
+.del-x{width:26px;height:26px;border-radius:50%;background:var(--red-dim);border:none;color:var(--red);cursor:pointer;font-size:.78rem;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.del-x:hover{background:var(--red);color:white}
+
+/* Plan tabs */
+.ptabs{display:flex;gap:6px;padding:8px 14px 0;flex-shrink:0}
+.ptab{flex:1;padding:8px 4px;border:none;background:var(--bg3);border-radius:var(--rs);cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-size:.74rem;font-weight:600;color:var(--text2);transition:all .15s}
+.ptab.active{background:var(--gold-dim);color:var(--gold)}
+
+/* Daily plan items */
+.dp-wrap{padding:10px 14px;border-bottom:1px solid var(--border)}
+.dp-wrap:last-child{border-bottom:none}
+.dp-row{display:flex;align-items:center;gap:10px}
+.dp-date-box{min-width:48px}
+.dp-d{font-size:.78rem;font-weight:600}
+.dp-dow{font-size:.66rem;color:var(--text2)}
+.dp-info{flex:1}
+.dp-main-name{font-size:.85rem;font-weight:600}
+.dp-sub-name{font-size:.72rem;color:var(--text2);margin-top:2px}
+.dp-badges{display:flex;gap:5px;align-items:center;margin-left:4px}
+.dp-check{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.82rem;transition:all .15s;flex-shrink:0}
+.dp-check.on{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.dp-edit{width:24px;height:24px;border-radius:50%;background:var(--gold-dim);border:none;color:var(--gold);cursor:pointer;font-size:.72rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.dp-edit:hover{background:var(--gold);color:var(--bg)}
+
+/* Weekly grid */
+.wgrid{overflow-x:auto;padding:12px}
+.wgrid::-webkit-scrollbar{display:none}
+.wtable{border-collapse:collapse;width:100%;min-width:540px;font-size:.71rem}
+.wtable th{background:var(--bg3);color:var(--gold);padding:7px 6px;text-align:center;font-weight:700;border:1px solid var(--border);font-family:'Noto Serif TC',serif}
+.wtable td{padding:5px 6px;border:1px solid var(--border);text-align:center;color:var(--text2);vertical-align:top;line-height:1.45}
+.wtable td.tc{background:rgba(232,184,109,.07);color:var(--text)}
+.wtable th.tc{background:var(--gold);color:var(--bg)}
+.wt-edit{display:inline-block;margin-top:2px;font-size:.62rem;padding:1px 5px;border-radius:3px;background:var(--gold-dim);color:var(--gold);cursor:pointer;border:none;font-family:'Noto Sans TC',sans-serif}
+
+/* English items */
+.eng-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.eng-item:last-child{border-bottom:none}
+.eng-day{font-family:'Noto Serif TC',serif;font-size:.85rem;font-weight:700;color:var(--purple);min-width:28px}
+.eng-info{flex:1}
+.eng-topic{font-size:.85rem;font-weight:600;margin-bottom:2px}
+.eng-detail{font-size:.72rem;color:var(--text2);line-height:1.5}
+.eng-actions{display:flex;gap:5px;align-items:center;flex-shrink:0}
+.eng-check{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.82rem;transition:all .15s}
+.eng-check.on{background:var(--purple-dim);border-color:var(--purple);color:var(--purple)}
+.eng-edit{width:24px;height:24px;border-radius:50%;background:var(--purple-dim);border:none;color:var(--purple);cursor:pointer;font-size:.72rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.eng-edit:hover{background:var(--purple);color:white}
+
+/* Chat */
+.chatmsgs{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.chatmsgs::-webkit-scrollbar{display:none}
+.msg{display:flex;gap:8px;align-items:flex-end;animation:mIn .2s ease}
+@keyframes mIn{from{opacity:0;transform:translateY(6px)}}
+.msg.user{flex-direction:row-reverse}
+.mav{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0}
+.mav.ai{background:var(--gold-dim)}.mav.user{background:var(--blue-dim)}
+.mbub{max-width:76%;padding:9px 13px;border-radius:15px;font-size:.86rem;line-height:1.55;white-space:pre-wrap}
+.msg.ai .mbub{background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:3px}
+.msg.user .mbub{background:var(--gold);color:var(--bg);border-bottom-right-radius:3px;font-weight:500}
+.dots{display:flex;gap:4px;align-items:center;padding:2px}
+.dots span{width:5px;height:5px;border-radius:50%;background:var(--text2);animation:dt 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dt{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+.cinput-area{flex-shrink:0;padding:8px 12px;padding-bottom:max(8px,var(--safe-b));background:var(--bg2);border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end}
+.cinput{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:9px 14px;color:var(--text);font-family:'Noto Sans TC',sans-serif;font-size:.88rem;resize:none;outline:none;max-height:100px;overflow-y:auto;line-height:1.4;transition:border-color .2s}
+.cinput:focus{border-color:var(--gold)}
+.cinput::placeholder{color:var(--text2)}
+.sbtn{width:38px;height:38px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;transition:all .2s;color:var(--bg)}
+.sbtn:hover{background:var(--gold2);transform:scale(1.06)}
+.sbtn:disabled{background:var(--surface);color:var(--text2);cursor:default;transform:none}
+.qchips{display:flex;gap:7px;padding:6px 12px 0;overflow-x:auto;flex-shrink:0}
+.qchips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:.74rem;cursor:pointer;transition:all .15s;font-family:'Noto Sans TC',sans-serif;white-space:nowrap}
+.chip:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+
+/* Log */
+.log-item{padding:12px 14px;border-bottom:1px solid var(--border)}
+.log-item:last-child{border-bottom:none}
+.log-hd{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.log-sname{font-size:.86rem;font-weight:600}
+.log-meta{font-size:.7rem;color:var(--text2);margin-left:auto}
+.log-range{font-size:.8rem;line-height:1.5}
+.log-note{font-size:.74rem;color:var(--text2);margin-top:3px;font-style:italic}
+
+/* Bottom sheet */
+.sheet-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:50;align-items:flex-end;justify-content:center}
+.sheet-ov.open{display:flex}
+.sheet{background:var(--bg2);border-radius:22px 22px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:0 0 max(20px,var(--safe-b));animation:sUp .28s cubic-bezier(.4,0,.2,1)}
+.sheet::-webkit-scrollbar{display:none}
+@keyframes sUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sh-handle{width:38px;height:4px;background:var(--surface);border-radius:2px;margin:11px auto 14px}
+.sh-ttl{padding:0 18px 12px;font-family:'Noto Serif TC',serif;font-size:1.05rem;font-weight:700;border-bottom:1px solid var(--border)}
+.sh-body{padding:14px 18px}
+.fl{margin-bottom:12px}
+.flbl{font-size:.76rem;color:var(--text2);margin-bottom:6px;display:block;letter-spacing:.04em}
+.finp,.fsel,.ftxt{width:100%;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;-webkit-appearance:none}
+.finp:focus,.fsel:focus,.ftxt:focus{border-color:var(--gold)}
+.ftxt{resize:vertical;min-height:70px;line-height:1.5}
+.fsel option{background:var(--bg2)}
+.br{display:flex;gap:8px;margin-top:4px}
+.btn{flex:1;padding:11px;border-radius:var(--rs);border:none;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-size:.88rem;font-weight:600;transition:all .2s}
+.btn-g{background:var(--gold);color:var(--bg)}
+.btn-g:hover{background:var(--gold2)}
+.btn-gh{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.btn-del{background:var(--red-dim);color:var(--red);border:none}
+.btn-del:hover{background:var(--red);color:white}
+
+.empty{text-align:center;padding:40px 20px;color:var(--text2);font-size:.84rem}
+.empty-i{font-size:2.8rem;display:block;margin-bottom:10px;opacity:.45}
+
+/* Inline edit row */
+.edit-row{background:var(--bg3);border-radius:var(--rs);padding:12px;margin:8px 14px;display:none}
+.edit-row.open{display:block}
+.edit-row .finp,.edit-row .fsel{margin-bottom:8px}
+.edit-row-btns{display:flex;gap:6px}
+.edit-row-btns button{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s}
+
+/* Tag */
+.tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.66rem;font-weight:700}
+.tag-fire{background:var(--orange-dim);color:var(--orange)}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="sbar">
+  <span class="appname">⚖️ 法律讀書助理</span>
+  <span style="font-size:.75rem;color:var(--text2)" id="clk"></span>
+</div>
+
+<div class="pages">
+  <!-- TODAY -->
+  <div class="page active" id="pg-today">
+    <div class="pscroll">
+      <div class="hero">
+        <div class="hero-date" id="heroDate"></div>
+        <div class="hero-sub" id="heroSub"></div>
+      </div>
+      <div class="stats">
+        <div class="sbox"><div class="snum" id="stTotal">0</div><div class="slbl">今日科目</div></div>
+        <div class="sbox"><div class="snum" id="stDone">0</div><div class="slbl">已完成</div></div>
+        <div class="sbox"><div class="snum" id="stHrs">─</div><div class="slbl">建議時數</div></div>
+      </div>
+      <div class="card">
+        <div class="ring-wrap">
+          <svg width="68" height="68" viewBox="0 0 68 68" style="flex-shrink:0">
+            <circle cx="34" cy="34" r="28" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+            <circle id="ringC" cx="34" cy="34" r="28" fill="none" stroke="var(--gold)" stroke-width="6"
+              stroke-dasharray="175.9" stroke-dashoffset="175.9" stroke-linecap="round"
+              transform="rotate(-90 34 34)" style="transition:stroke-dashoffset .6s ease"/>
+          </svg>
+          <div><div class="ring-pct"><span id="ringPct">0</span>%</div><div class="ring-msg" id="ringMsg"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="sh"><span class="sh-title">🗓 今日行程</span><button class="sh-btn" onclick="openSheet('schSh')">＋ 新增</button></div>
+        <div id="todSchedList"></div>
+      </div>
+      <div class="card" style="margin-bottom:18px">
+        <div class="sh"><span class="sh-title">📚 今日讀書計畫</span><button class="sh-btn" onclick="sw('chat')">💬 回報進度</button></div>
+        <div id="todSubjList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="page" id="pg-chat">
+    <div class="chatmsgs" id="chatMsgs"></div>
+    <div class="qchips" id="qchips"></div>
+    <div class="cinput-area">
+      <textarea class="cinput" id="ci" placeholder="跟助理說你讀了什麼..." rows="1"
+        onkeydown="ck(event)" oninput="ag(this)"></textarea>
+      <button class="sbtn" id="sbtn" onclick="send()">➤</button>
+    </div>
+  </div>
+
+  <!-- PLAN -->
+  <div class="page" id="pg-plan">
+    <div class="ptabs">
+      <button class="ptab active" onclick="switchPlan('daily')">📅 每日</button>
+      <button class="ptab" onclick="switchPlan('weekly')">🗓 週表</button>
+      <button class="ptab" onclick="switchPlan('english')">🗣 英文</button>
+    </div>
+    <div class="pscroll" id="planScroll"></div>
+  </div>
+
+  <!-- LOG -->
+  <div class="page" id="pg-log">
+    <div class="pscroll">
+      <div style="height:10px"></div>
+      <div class="card" style="margin-bottom:18px"><div id="logList"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="bnav">
+  <button class="nbtn active" id="nb-today" onclick="sw('today')"><span class="ico">🏠</span><span class="lbl">今日</span></button>
+  <button class="nbtn" id="nb-chat" onclick="sw('chat')"><span class="ico">💬</span><span class="lbl">助理</span></button>
+  <button class="nbtn" id="nb-plan" onclick="sw('plan')"><span class="ico">📋</span><span class="lbl">計畫</span></button>
+  <button class="nbtn" id="nb-log" onclick="sw('log')"><span class="ico">📝</span><span class="lbl">紀錄</span></button>
+</div>
+</div>
+
+<!-- Schedule Sheet -->
+<div class="sheet-ov" id="schSh" onclick="soClose(event,'schSh')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-ttl" id="schShTitle">🗓 新增行程</div>
+    <div class="sh-body">
+      <div class="fl"><label class="flbl">行程內容</label><input class="finp" id="schD" placeholder="例：補習班、考試"></div>
+      <div class="fl"><label class="flbl">時間</label><input class="finp" id="schT" type="time"></div>
+      <div class="fl"><label class="flbl">日期</label><input class="finp" id="schDt" type="date"></div>
+      <div class="br">
+        <button class="btn btn-g" onclick="saveSch()">儲存</button>
+        <button class="btn btn-gh" onclick="closeSheet('schSh')">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Daily Plan Edit Sheet -->
+<div class="sheet-ov" id="dpSh" onclick="soClose(event,'dpSh')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-ttl" id="dpShTitle">📅 編輯每日計畫</div>
+    <div class="sh-body">
+      <div class="fl"><label class="flbl">日期</label><input class="finp" id="dpDate" type="date"></div>
+      <div class="fl"><label class="flbl">主科</label><input class="finp" id="dpMain" placeholder="例：刑法總則"></div>
+      <div class="fl"><label class="flbl">副科（無填 —）</label><input class="finp" id="dpSub" placeholder="例：行政法 或 —"></div>
+      <div class="fl"><label class="flbl">建議時數</label><input class="finp" id="dpHrs" placeholder="例：2–3h"></div>
+      <div class="fl"><label class="flbl">備註（衝刺日填 🔥）</label><input class="finp" id="dpNote" placeholder="可空白"></div>
+      <div class="br">
+        <button class="btn btn-g" onclick="saveDp()">儲存</button>
+        <button class="btn btn-del" id="dpDelBtn" onclick="delDp()">刪除</button>
+        <button class="btn btn-gh" onclick="closeSheet('dpSh')">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Weekly Cell Edit Sheet -->
+<div class="sheet-ov" id="wkSh" onclick="soClose(event,'wkSh')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-ttl" id="wkShTitle">🗓 編輯時段</div>
+    <div class="sh-body">
+      <div style="font-size:.8rem;color:var(--text2);margin-bottom:12px">每行一個時段，例如：<br>09:15 起床<br>10:00–12:00 刑法</div>
+      <div class="fl"><textarea class="ftxt" id="wkContent" style="min-height:160px"></textarea></div>
+      <div class="br">
+        <button class="btn btn-g" onclick="saveWk()">儲存</button>
+        <button class="btn btn-gh" onclick="closeSheet('wkSh')">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- English Edit Sheet -->
+<div class="sheet-ov" id="engSh" onclick="soClose(event,'engSh')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-ttl" id="engShTitle">🗣 編輯英文計畫</div>
+    <div class="sh-body">
+      <div class="fl"><label class="flbl">主題</label><input class="finp" id="engTopic" placeholder="例：自我介紹"></div>
+      <div class="fl"><label class="flbl">聽力內容 (20min)</label><input class="finp" id="engListen" placeholder="例：YouTube: Self introduction"></div>
+      <div class="fl"><label class="flbl">跟讀模仿 (20min)</label><input class="finp" id="engShadow" placeholder="例：跟讀介紹影片"></div>
+      <div class="fl"><label class="flbl">口說輸出 (20min)</label><input class="finp" id="engSpeak" placeholder="例：介紹自己"></div>
+      <div class="br">
+        <button class="btn btn-g" onclick="saveEng()">儲存</button>
+        <button class="btn btn-gh" onclick="closeSheet('engSh')">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ EMPTY DEFAULTS ═══
+const EMPTY_WEEKLY=[
+  {col:'週一',rows:[]},{col:'週二',rows:[]},{col:'週三',rows:[]},
+  {col:'週四',rows:[]},{col:'週五',rows:[]},{col:'週六',rows:[]},{col:'週日',rows:[]},
+];
+
+// ═══ STATE ═══
+const DLABELS=['日','一','二','三','四','五','六'];
+const DOW=new Date().getDay();
+let S=JSON.parse(localStorage.getItem('lawApp4')||'null')||{
+  plan:[],
+  weekly:JSON.parse(JSON.stringify(EMPTY_WEEKLY)),
+  english:[],
+  engDone:{},schedules:[],logs:[],chat:[],
+  onboarded:false
+};
+function save(){localStorage.setItem('lawApp4',JSON.stringify(S));}
+
+// ═══ ONBOARDING ═══
+function checkOnboarding(){
+  if(!S.onboarded) showOnboarding();
+}
+function showOnboarding(){
+  const ov=document.createElement('div');
+  ov.id='onboard';
+  ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;';
+  ov.innerHTML=`
+    <div style="max-width:340px;width:100%;text-align:center">
+      <div style="font-size:3.5rem;margin-bottom:16px">⚖️</div>
+      <div style="font-family:\'Noto Serif TC\',serif;font-size:1.5rem;font-weight:700;color:var(--gold);margin-bottom:10px">法律讀書助理</div>
+      <div style="font-size:.88rem;color:var(--text2);line-height:1.7;margin-bottom:28px">
+        你的個人讀書計畫完全保存在<br>這台裝置上，不會上傳或公開。<br><br>
+        請先到「計畫」頁輸入你的<br>每日讀書計畫、週時間表與英文計畫。
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="finishOnboard('plan')" style="padding:14px;border-radius:14px;border:none;background:var(--gold);color:var(--bg);font-family:\'Noto Sans TC\',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;">📋 開始設定計畫</button>
+        <button onclick="finishOnboard('today')" style="padding:12px;border-radius:14px;border:none;background:var(--bg3);color:var(--text2);border:1px solid var(--border);font-family:\'Noto Sans TC\',sans-serif;font-size:.88rem;cursor:pointer;">先看看 App 長什麼樣子</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+}
+function finishOnboard(dest){
+  S.onboarded=true;save();
+  document.getElementById('onboard')?.remove();
+  sw(dest);
+}
+
+// ═══ CLOCK ═══
+function tick(){const n=new Date();document.getElementById('clk').textContent=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;}
+tick();setInterval(tick,10000);
+
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function dateDow(dateStr){const d=new Date(dateStr+'T00:00:00');return DLABELS[d.getDay()];}
+
+// ═══ NAV ═══
+let curPg='today';
+function sw(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pg-'+name).classList.add('active');
+  document.getElementById('nb-'+name).classList.add('active');
+  curPg=name;
+  if(name==='today')renderToday();
+  if(name==='log')renderLog();
+  if(name==='plan')renderPlan('daily');
+  if(name==='chat')initChat();
+}
+
+// ═══ SHEETS ═══
+function openSheet(id){document.getElementById(id).classList.add('open');}
+function closeSheet(id){document.getElementById(id).classList.remove('open');}
+function soClose(e,id){if(e.target===document.getElementById(id))closeSheet(id);}
+
+// ── Schedule ──
+function openSchSheet(){
+  document.getElementById('schD').value='';
+  document.getElementById('schT').value='';
+  document.getElementById('schDt').value=todayStr();
+  openSheet('schSh');
+}
+function saveSch(){
+  const desc=document.getElementById('schD').value.trim();
+  if(!desc){alert('請輸入行程');return;}
+  S.schedules.push({id:Date.now(),desc,time:document.getElementById('schT').value,date:document.getElementById('schDt').value});
+  S.schedules.sort((a,b)=>a.time.localeCompare(b.time));
+  save();closeSheet('schSh');renderToday();
+}
+function delSch(id){S.schedules=S.schedules.filter(s=>s.id!==id);save();renderToday();}
+
+// ── Daily Plan ──
+let dpEditIdx=-1; // -1 = new
+function openDpSheet(idx){
+  dpEditIdx=idx;
+  const isNew=idx===-1;
+  document.getElementById('dpShTitle').textContent=isNew?'📅 新增計畫':'📅 編輯計畫';
+  document.getElementById('dpDelBtn').style.display=isNew?'none':'flex';
+  if(isNew){
+    document.getElementById('dpDate').value=todayStr();
+    document.getElementById('dpMain').value='';
+    document.getElementById('dpSub').value='—';
+    document.getElementById('dpHrs').value='';
+    document.getElementById('dpNote').value='';
+  } else {
+    const p=S.plan[idx];
+    document.getElementById('dpDate').value=p.date;
+    document.getElementById('dpMain').value=p.main;
+    document.getElementById('dpSub').value=p.sub;
+    document.getElementById('dpHrs').value=p.hrs;
+    document.getElementById('dpNote').value=p.note;
+  }
+  openSheet('dpSh');
+}
+function saveDp(){
+  const date=document.getElementById('dpDate').value;
+  const main=document.getElementById('dpMain').value.trim();
+  if(!date||!main){alert('請填寫日期和主科');return;}
+  const entry={
+    date,dow:dateDow(date),
+    main,mainDone:false,
+    sub:document.getElementById('dpSub').value.trim()||'—',subDone:false,
+    hrs:document.getElementById('dpHrs').value.trim(),
+    note:document.getElementById('dpNote').value.trim()
+  };
+  if(dpEditIdx===-1){
+    S.plan.push(entry);
+  } else {
+    entry.mainDone=S.plan[dpEditIdx].mainDone;
+    entry.subDone=S.plan[dpEditIdx].subDone;
+    S.plan[dpEditIdx]=entry;
+  }
+  S.plan.sort((a,b)=>a.date.localeCompare(b.date));
+  save();closeSheet('dpSh');renderPlan('daily');renderToday();
+}
+function delDp(){
+  if(!confirm('刪除這天的計畫？'))return;
+  S.plan.splice(dpEditIdx,1);
+  save();closeSheet('dpSh');renderPlan('daily');renderToday();
+}
+
+// ── Weekly ──
+let wkEditDay=-1;
+function openWkSheet(dayIdx){
+  wkEditDay=dayIdx;
+  document.getElementById('wkShTitle').textContent=`🗓 編輯 ${S.weekly[dayIdx].col}`;
+  document.getElementById('wkContent').value=S.weekly[dayIdx].rows.join('\n');
+  openSheet('wkSh');
+}
+function saveWk(){
+  const rows=document.getElementById('wkContent').value.split('\n').map(r=>r.trim()).filter(r=>r);
+  S.weekly[wkEditDay].rows=rows;
+  save();closeSheet('wkSh');renderPlan('weekly');renderToday();
+}
+
+// ── English ──
+let engEditDay=-1;
+function openEngSheet(day){
+  engEditDay=day;
+  const e=S.english.find(e=>e.day===day);
+  document.getElementById('engShTitle').textContent=`🗣 Day ${day} 英文計畫`;
+  document.getElementById('engTopic').value=e.topic;
+  document.getElementById('engListen').value=e.listen;
+  document.getElementById('engShadow').value=e.shadow;
+  document.getElementById('engSpeak').value=e.speak;
+  openSheet('engSh');
+}
+function saveEng(){
+  const entry={
+    day:engEditDay,
+    topic:document.getElementById('engTopic').value.trim(),
+    listen:document.getElementById('engListen').value.trim(),
+    shadow:document.getElementById('engShadow').value.trim(),
+    speak:document.getElementById('engSpeak').value.trim(),
+  };
+  const idx=S.english.findIndex(e=>e.day===engEditDay);
+  if(idx>=0){ S.english[idx]=entry; } else { S.english.push(entry); S.english.sort((a,b)=>a.day-b.day); }
+  save();closeSheet('engSh');renderPlan('english');
+}
+
+// ═══ TODAY ═══
+function renderToday(){
+  const today=todayStr();
+  const d=new Date();
+  document.getElementById('heroDate').textContent=`${d.getMonth()+1}月${d.getDate()}日`;
+  const todayPlan=S.plan.find(p=>p.date===today);
+  let sub=`週${DLABELS[DOW]}`;
+  if(todayPlan?.note==='🔥')sub+=' 🔥 衝刺日';
+  else if(todayPlan?.note)sub+=` · ${todayPlan.note}`;
+  document.getElementById('heroSub').textContent=sub;
+
+  const logs=S.logs.filter(l=>l.date===today);
+  const doneNames=new Set(logs.map(l=>l.subjectName));
+  let total=0,hrs='─';
+  if(todayPlan){
+    total=(todayPlan.main!=='—'?1:0)+(todayPlan.sub!=='—'?1:0)+1;
+    hrs=todayPlan.hrs||'─';
+  }
+  const done=doneNames.size;
+  document.getElementById('stTotal').textContent=total;
+  document.getElementById('stDone').textContent=done;
+  document.getElementById('stHrs').textContent=hrs;
+  const pct=total>0?Math.round(done/total*100):0;
+  document.getElementById('ringPct').textContent=pct;
+  document.getElementById('ringMsg').textContent=['今天加油！','繼續衝！','過半了 💪','快完成了！','全完成！🎉'][Math.min(Math.floor(pct/25),4)];
+  document.getElementById('ringC').style.strokeDashoffset=175.9*(1-pct/100);
+
+  // Schedules
+  const scheds=S.schedules.filter(s=>s.date===today);
+  const wToday=S.weekly[DOW===0?6:DOW-1];
+  const schEl=document.getElementById('todSchedList');
+  let schHtml=scheds.map(s=>`<div class="schedr"><div class="scht">${s.time||'─'}</div><div style="flex:1;font-size:.85rem">${s.desc}</div><button class="del-x" onclick="delSch(${s.id})">✕</button></div>`).join('');
+  if(wToday) schHtml+=`<div style="padding:8px 14px 12px;font-size:.73rem;color:var(--text2);line-height:1.9">${wToday.rows.map(r=>`· ${r}`).join('　')}</div>`;
+  schEl.innerHTML=schHtml||`<div style="padding:10px 14px;font-size:.8rem;color:var(--text2)">今日無額外行程</div>`;
+
+  // Subjects
+  const subjEl=document.getElementById('todSubjList');
+  if(!todayPlan){
+    subjEl.innerHTML=`<div class="empty"><span class="empty-i">📋</span>今天尚無計畫<br><small>到「計畫」頁新增</small></div>`;
+    return;
+  }
+  const mainLog=logs.find(l=>l.subjectName===todayPlan.main);
+  const subLog=logs.find(l=>l.subjectName===todayPlan.sub);
+  const engLog=logs.find(l=>l.subjectName==='英文');
+  let h='';
+  if(todayPlan.main!=='—'){
+    const ok=!!mainLog;
+    h+=`<div><div class="sr"><div class="sdot" style="background:var(--red)"></div><div class="sname">${todayPlan.main}</div><span class="pill pill-main" style="margin-right:5px">主科</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&mainLog?`<div class="done-range">📖 ${mainLog.range}</div>`:''}</div>`;
+  }
+  if(todayPlan.sub!=='—'){
+    const ok=!!subLog;
+    h+=`<div><div class="sr"><div class="sdot" style="background:var(--blue)"></div><div class="sname">${todayPlan.sub}</div><span class="pill pill-sub" style="margin-right:5px">副科</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&subLog?`<div class="done-range">📖 ${subLog.range}</div>`:''}</div>`;
+  }
+  const engOk=!!engLog;
+  h+=`<div><div class="sr"><div class="sdot" style="background:var(--purple)"></div><div class="sname">英文練習</div><span class="pill pill-eng" style="margin-right:5px">英文</span><div class="pill ${engOk?'pill-done':'pill-todo'}">${engOk?'✓ 完成':'待讀'}</div></div>${engOk&&engLog?`<div class="done-range">📖 ${engLog.range}</div>`:''}</div>`;
+  subjEl.innerHTML=h;
+}
+
+// ═══ PLAN ═══
+let curPlanTab='daily';
+function switchPlan(tab){
+  curPlanTab=tab;
+  document.querySelectorAll('.ptab').forEach((t,i)=>t.classList.toggle('active',['daily','weekly','english'][i]===tab));
+  renderPlan(tab);
+}
+function renderPlan(tab){
+  const el=document.getElementById('planScroll');
+  if(tab==='daily')renderDaily(el);
+  if(tab==='weekly')renderWeekly(el);
+  if(tab==='english')renderEnglish(el);
+}
+
+function renderDaily(el){
+  const today=todayStr();
+  el.innerHTML='<div style="height:8px"></div>'+
+    `<div style="padding:0 0 8px;display:flex;justify-content:flex-end"><button class="sh-btn" onclick="openDpSheet(-1)" style="font-size:.78rem">＋ 新增計畫</button></div>`+
+    S.plan.map((p,i)=>{
+      const isToday=p.date===today;
+      return `<div class="card" style="${isToday?'border-color:var(--gold)':''};margin-bottom:8px">
+        <div class="dp-wrap">
+          <div class="dp-row">
+            <div class="dp-date-box">
+              <div class="dp-d" style="color:${isToday?'var(--gold)':'var(--text)'}">${p.date.slice(5).replace('-','/')}</div>
+              <div class="dp-dow">週${p.dow}</div>
+            </div>
+            <div class="dp-info">
+              <div class="dp-main-name">${p.main} ${p.note==='🔥'?'<span class="tag tag-fire">🔥</span>':''}</div>
+              <div class="dp-sub-name">${p.sub!=='—'?`副：${p.sub}　`:''}${p.hrs}</div>
+            </div>
+            <div class="dp-badges">
+              <button class="dp-check ${p.mainDone?'on':''}" onclick="toggleDpDone(${i},'main')">${p.mainDone?'✓':''}</button>
+              <button class="dp-edit" onclick="openDpSheet(${i})">✎</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')+
+    '<div style="height:16px"></div>';
+}
+
+function toggleDpDone(i,field){
+  S.plan[i][field+'Done']=!S.plan[i][field+'Done'];
+  save();renderPlan(curPlanTab);
+  if(curPg==='today')renderToday();
+}
+
+function renderWeekly(el){
+  const todayColIdx=DOW===0?6:DOW-1;
+  const maxRows=Math.max(...S.weekly.map(d=>d.rows.length));
+  let html='<div style="height:8px"></div><div style="background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;margin-bottom:8px">';
+  html+='<div style="padding:10px 14px 4px;font-size:.78rem;color:var(--text2)">點每欄的「✎」可以編輯時段內容</div>';
+  html+='<div class="wgrid"><table class="wtable"><tr>';
+  S.weekly.forEach((d,i)=>{
+    html+=`<th class="${i===todayColIdx?'tc':''}">${d.col}<br><button class="wt-edit" onclick="openWkSheet(${i})">✎</button></th>`;
+  });
+  html+='</tr>';
+  for(let r=0;r<maxRows;r++){
+    html+='<tr>';
+    S.weekly.forEach((col,i)=>{
+      html+=`<td class="${i===todayColIdx?'tc':''}">${col.rows[r]||''}</td>`;
+    });
+    html+='</tr>';
+  }
+  html+='</table></div></div><div style="height:16px"></div>';
+  el.innerHTML=html;
+}
+
+function renderEnglish(el){
+  const addBtn=`<div style="padding:0 0 8px;display:flex;justify-content:flex-end"><button class="sh-btn" onclick="openNewEngSheet()" style="font-size:.78rem">＋ 新增英文計畫</button></div>`;
+  if(!S.english.length){
+    el.innerHTML='<div style="height:8px"></div>'+addBtn+`<div class="card"><div class="empty"><span class="empty-i">🗣</span>還沒有英文計畫<br>點上方按鈕新增</div></div>`;
+    return;
+  }
+  el.innerHTML='<div style="height:8px"></div>'+addBtn+'<div class="card" style="margin-bottom:16px">'+
+    S.english.map(e=>`
+      <div class="eng-item">
+        <div class="eng-day">D${e.day}</div>
+        <div class="eng-info">
+          <div class="eng-topic">${e.topic}</div>
+          <div class="eng-detail">🎧 ${e.listen} · 🗣 ${e.speak}</div>
+        </div>
+        <div class="eng-actions">
+          <button class="eng-check ${S.engDone[e.day]?'on':''}" onclick="toggleEng(${e.day})">${S.engDone[e.day]?'✓':''}</button>
+          <button class="eng-edit" onclick="openEngSheet(${e.day})">✎</button>
+        </div>
+      </div>`).join('')+
+    '</div><div style="height:16px"></div>';
+}
+function toggleEng(day){S.engDone[day]=!S.engDone[day];save();renderPlan('english');}
+function openNewEngSheet(){
+  const nextDay = S.english.length ? Math.max(...S.english.map(e=>e.day))+1 : 1;
+  engEditDay = nextDay;
+  document.getElementById('engShTitle').textContent=`🗣 Day ${nextDay} 英文計畫`;
+  document.getElementById('engTopic').value='';
+  document.getElementById('engListen').value='';
+  document.getElementById('engShadow').value='';
+  document.getElementById('engSpeak').value='';
+  openSheet('engSh');
+}
+
+// ═══ LOG ═══
+function renderLog(){
+  const el=document.getElementById('logList');
+  if(!S.logs.length){el.innerHTML=`<div class="empty"><span class="empty-i">📝</span>回報進度後記錄在這裡</div>`;return;}
+  const COLORS={'刑法':'var(--red)','刑法總則':'var(--red)','刑法分則':'var(--red)','民法':'var(--blue)','民事訴訟法':'var(--blue)','憲法':'var(--orange)','憲法訴訟法':'var(--orange)','行政法':'var(--green)','行政救濟法':'var(--green)','刑事訴訟法':'var(--purple)','英文':'var(--purple)'};
+  el.innerHTML=S.logs.map(l=>`
+    <div class="log-item">
+      <div class="log-hd">
+        <div class="sdot" style="background:${COLORS[l.subjectName]||'var(--gold)'};width:8px;height:8px;border-radius:50%"></div>
+        <div class="log-sname">${l.subjectName}</div>
+        <div class="log-meta">${l.date} ${l.time}</div>
+      </div>
+      <div class="log-range">📖 ${l.range}</div>
+      ${l.note?`<div class="log-note">💬 ${l.note}</div>`:''}
+    </div>`).join('');
+}
+
+// ═══ CHAT ═══
+let chatInited=false;
+function initChat(){
+  if(chatInited)return;chatInited=true;
+  const today=todayStr();
+  const tp=S.plan.find(p=>p.date===today);
+  const logs=S.logs.filter(l=>l.date===today);
+  const done=new Set(logs.map(l=>l.subjectName));
+  let msg='嗨！我是你的法律讀書助理 ⚖️\n\n';
+  if(!tp){msg+='今天尚未安排計畫。可以到「計畫」頁新增，或直接告訴我你今天讀了什麼！';}
+  else{
+    msg+=`今天週${tp.dow}，建議讀書 ${tp.hrs}${tp.note==='🔥'?' — 衝刺日 💪':''}。\n\n今日計畫：\n`;
+    if(tp.main!=='—')msg+=`${done.has(tp.main)?'✅':'📌'} 主科：${tp.main}\n`;
+    if(tp.sub!=='—')msg+=`${done.has(tp.sub)?'✅':'📌'} 副科：${tp.sub}\n`;
+    msg+=`${done.has('英文')?'✅':'📌'} 英文練習\n`;
+    const pending=[tp.main,tp.sub,'英文'].filter(s=>s!=='—'&&!done.has(s));
+    msg+=pending.length?`\n還剩 ${pending.length} 個沒完成，加油！讀完跟我說 😊`:`\n今天全完成了！🎉`;
+  }
+  addMsg('ai',msg);updateChips();
+}
+function updateChips(){
+  const today=todayStr();const tp=S.plan.find(p=>p.date===today);
+  const done=new Set(S.logs.filter(l=>l.date===today).map(l=>l.subjectName));
+  const chips=[];
+  if(tp)[tp.main,tp.sub,'英文'].filter(s=>s!=='—'&&!done.has(s)).slice(0,2).forEach(s=>chips.push(`我讀完${s}了`));
+  chips.push('今天進度？','明天讀什麼？','幫我加油 💪');
+  document.getElementById('qchips').innerHTML=chips.map(c=>`<div class="chip" onclick="chipTap('${c}')">${c}</div>`).join('');
+}
+function chipTap(t){document.getElementById('ci').value=t;send();}
+function addMsg(role,text){
+  const w=document.getElementById('chatMsgs');
+  const d=document.createElement('div');d.className=`msg ${role}`;
+  d.innerHTML=`<div class="mav ${role}">${role==='ai'?'⚖️':'👤'}</div><div class="mbub">${text}</div>`;
+  w.appendChild(d);w.scrollTop=w.scrollHeight;
+  S.chat.push({role:role==='ai'?'assistant':'user',content:text});
+  if(S.chat.length>40)S.chat=S.chat.slice(-40);
+  save();
+}
+function showTyping(){const w=document.getElementById('chatMsgs');const d=document.createElement('div');d.className='msg ai';d.id='typ';d.innerHTML=`<div class="mav ai">⚖️</div><div class="mbub"><div class="dots"><span></span><span></span><span></span></div></div>`;w.appendChild(d);w.scrollTop=w.scrollHeight;}
+function hideTyping(){document.getElementById('typ')?.remove();}
+
+async function send(){
+  const inp=document.getElementById('ci');const text=inp.value.trim();if(!text)return;
+  inp.value='';inp.style.height='';document.getElementById('sbtn').disabled=true;
+  addMsg('user',text);showTyping();
+  const today=todayStr();const tp=S.plan.find(p=>p.date===today);
+  const logs=S.logs.filter(l=>l.date===today);const done=new Set(logs.map(l=>l.subjectName));
+  const sys=`你是親切的法律考試讀書助理，用繁體中文回覆，像朋友一樣簡潔溫暖。
+今天 ${today}（週${DLABELS[DOW]}）計畫：主科：${tp?.main||'未安排'}${tp?.main&&done.has(tp.main)?'（完成）':''}，副科：${tp?.sub||'無'}${tp?.sub&&done.has(tp.sub)?'（完成）':''}，英文：${done.has('英文')?'完成':'未完成'}，建議：${tp?.hrs||'─'}${tp?.note==='🔥'?'（衝刺日）':''}
+【記錄格式】當用戶說讀完某科目，在回覆結尾加：[RECORD:科目名稱|讀的範圍|備註]，備註可空。給鼓勵並說明還剩什麼。`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[...S.chat.slice(-12).map(m=>({role:m.role,content:m.content})),{role:'user',content:text}]})});
+    const data=await r.json();hideTyping();
+    const reply=data.content?.[0]?.text||'抱歉，請再試一次 🙏';
+    const re=/\[RECORD:([^|]+)\|([^|]*)\|([^\]]*)\]/g;let m;
+    while((m=re.exec(reply))!==null){
+      const[,sname,range,note]=m;
+      if(range.trim()){const n=new Date();const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+        S.logs=S.logs.filter(l=>!(l.subjectName===sname.trim()&&l.date===today));
+        S.logs.unshift({id:Date.now(),subjectName:sname.trim(),range:range.trim(),note:note.trim(),date:today,time:t});save();}
+    }
+    addMsg('ai',reply.replace(/\[RECORD:[^\]]+\]/g,'').trim());
+    updateChips();if(curPg==='today')renderToday();
+  }catch(e){hideTyping();addMsg('ai','連線有問題，請再試一次 🙏');}
+  document.getElementById('sbtn').disabled=false;
+}
+function ck(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
+function ag(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+
+renderToday();
+checkOnboarding();
+</script>
+</body>
+</html>
