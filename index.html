@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="讀書助理">
 <meta name="theme-color" content="#0d0d1a">
 <title>⚖️ 法律讀書助理</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -198,6 +199,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* Tag */
 .tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.66rem;font-weight:700}
 .tag-fire{background:var(--orange-dim);color:var(--orange)}
+
+/* Google Drive */
+.gdrive-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.gdrive-status{font-size:.72rem;color:var(--text2);flex:1}
+.gdrive-btn{font-size:.72rem;padding:5px 11px;border-radius:20px;border:none;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-weight:600;transition:all .15s}
+.gdrive-login{background:var(--blue-dim);color:var(--blue)}
+.gdrive-login:hover{background:var(--blue);color:white}
+.gdrive-sync{background:var(--green-dim);color:var(--green)}
+.gdrive-sync:hover{background:var(--green);color:var(--bg)}
+.gdrive-out{background:var(--red-dim);color:var(--red)}
+.sync-spin{animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -207,6 +220,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <span style="font-size:.75rem;color:var(--text2)" id="clk"></span>
 </div>
 
+<div class="gdrive-bar" id="gdriveBar">
+  <span class="gdrive-status" id="gdriveStatus">☁️ 未連結 Google Drive</span>
+  <button class="gdrive-btn gdrive-login" onclick="gdriveLogin()">🔗 連結</button>
+</div>
 <div class="pages">
   <!-- TODAY -->
   <div class="page active" id="pg-today">
@@ -775,6 +792,102 @@ async function send(){
 }
 function ck(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
 function ag(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+
+// ═══ GOOGLE DRIVE ═══
+const CLIENT_ID='958195742308-v5579d34r8imr658bnaf24un1d78jqln.apps.googleusercontent.com';
+const SCOPES='https://www.googleapis.com/auth/drive.appdata';
+const FILE_NAME='study-assistant-backup.json';
+let tokenClient=null, accessToken=null;
+
+function gdriveInit(){
+  if(!window.google)return;
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,
+    scope:SCOPES,
+    callback:(resp)=>{
+      if(resp.error)return;
+      accessToken=resp.access_token;
+      localStorage.setItem('gdriveToken',accessToken);
+      updateGdriveUI(true);
+      gdriveLoad();
+    }
+  });
+  const saved=localStorage.getItem('gdriveToken');
+  if(saved){accessToken=saved;updateGdriveUI(true);}
+}
+
+function gdriveLogin(){
+  if(!tokenClient){alert('Google 登入尚未載入，請稍後再試');return;}
+  tokenClient.requestAccessToken();
+}
+function gdriveLogout(){
+  accessToken=null;localStorage.removeItem('gdriveToken');
+  updateGdriveUI(false);
+}
+
+function updateGdriveUI(loggedIn){
+  const bar=document.getElementById('gdriveBar');
+  const status=document.getElementById('gdriveStatus');
+  bar.innerHTML='';
+  const s=document.createElement('span');s.className='gdrive-status';
+  if(loggedIn){
+    s.textContent='☁️ 已連結 Google Drive';
+    const syncBtn=document.createElement('button');syncBtn.className='gdrive-btn gdrive-sync';syncBtn.textContent='⬆ 備份';syncBtn.onclick=gdriveSave;
+    const loadBtn=document.createElement('button');loadBtn.className='gdrive-btn gdrive-login';loadBtn.textContent='⬇ 還原';loadBtn.onclick=gdriveLoad;
+    const outBtn=document.createElement('button');outBtn.className='gdrive-btn gdrive-out';outBtn.textContent='登出';outBtn.onclick=gdriveLogout;
+    bar.appendChild(s);bar.appendChild(syncBtn);bar.appendChild(loadBtn);bar.appendChild(outBtn);
+  } else {
+    s.textContent='☁️ 未連結 Google Drive';
+    const loginBtn=document.createElement('button');loginBtn.className='gdrive-btn gdrive-login';loginBtn.textContent='🔗 連結';loginBtn.onclick=gdriveLogin;
+    bar.appendChild(s);bar.appendChild(loginBtn);
+  }
+}
+
+async function findFile(){
+  const r=await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%22'+FILE_NAME+'%22',{headers:{Authorization:'Bearer '+accessToken}});
+  const d=await r.json();
+  return d.files&&d.files.length?d.files[0].id:null;
+}
+
+async function gdriveSave(){
+  if(!accessToken){alert('請先連結 Google Drive');return;}
+  const status=document.getElementById('gdriveStatus');
+  const origText=status.textContent;
+  status.innerHTML='<span class="sync-spin">⟳</span> 備份中...';
+  try{
+    const json=JSON.stringify(S);
+    const fileId=await findFile();
+    let url,method;
+    if(fileId){url=`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;method='PATCH';}
+    else{
+      const meta=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({name:FILE_NAME,parents:['appDataFolder']})});
+      const mj=await meta.json();
+      url=`https://www.googleapis.com/upload/drive/v3/files/${mj.id}?uploadType=media`;method='PATCH';
+    }
+    await fetch(url,{method,headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:json});
+    status.textContent='☁️ 備份成功 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+    setTimeout(()=>updateGdriveUI(true),2000);
+  }catch(e){status.textContent='⚠️ 備份失敗';setTimeout(()=>updateGdriveUI(true),2000);}
+}
+
+async function gdriveLoad(){
+  if(!accessToken)return;
+  const status=document.getElementById('gdriveStatus');
+  status.innerHTML='<span class="sync-spin">⟳</span> 還原中...';
+  try{
+    const fileId=await findFile();
+    if(!fileId){status.textContent='☁️ 雲端尚無備份';setTimeout(()=>updateGdriveUI(true),2000);return;}
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:'Bearer '+accessToken}});
+    const remote=await r.json();
+    S=remote;save();
+    status.textContent='☁️ 還原成功！';
+    setTimeout(()=>{updateGdriveUI(true);renderToday();if(curPg==='log')renderLog();},1500);
+  }catch(e){status.textContent='⚠️ 還原失敗';setTimeout(()=>updateGdriveUI(true),2000);}
+}
+
+window.addEventListener('load',()=>{
+  setTimeout(gdriveInit,1000);
+});
 
 renderToday();
 checkOnboarding();
