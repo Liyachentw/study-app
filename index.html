@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-title" content="讀書助理">
 <meta name="theme-color" content="#0d0d1a">
 <title>⚖️ 法律讀書助理</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -199,18 +198,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* Tag */
 .tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.66rem;font-weight:700}
 .tag-fire{background:var(--orange-dim);color:var(--orange)}
-
-/* Google Drive */
-.gdrive-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
-.gdrive-status{font-size:.72rem;color:var(--text2);flex:1}
-.gdrive-btn{font-size:.72rem;padding:5px 11px;border-radius:20px;border:none;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-weight:600;transition:all .15s}
-.gdrive-login{background:var(--blue-dim);color:var(--blue)}
-.gdrive-login:hover{background:var(--blue);color:white}
-.gdrive-sync{background:var(--green-dim);color:var(--green)}
-.gdrive-sync:hover{background:var(--green);color:var(--bg)}
-.gdrive-out{background:var(--red-dim);color:var(--red)}
-.sync-spin{animation:spin .8s linear infinite;display:inline-block}
-@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -220,10 +207,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <span style="font-size:.75rem;color:var(--text2)" id="clk"></span>
 </div>
 
-<div class="gdrive-bar" id="gdriveBar">
-  <span class="gdrive-status" id="gdriveStatus">☁️ 未連結 Google Drive</span>
-  <button class="gdrive-btn gdrive-login" onclick="gdriveLogin()">🔗 連結</button>
-</div>
 <div class="pages">
   <!-- TODAY -->
   <div class="page active" id="pg-today">
@@ -277,6 +260,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <button class="ptab" onclick="switchPlan('weekly')">🗓 週表</button>
       <button class="ptab" onclick="switchPlan('english')">🗣 英文</button>
     </div>
+    <div style="padding:6px 14px 0;display:flex;justify-content:flex-end">
+      <button onclick="syncFromGAS()" id="gasSyncBtn" style="font-size:.72rem;padding:5px 11px;border-radius:20px;background:rgba(94,207,138,0.12);color:var(--green);border:none;cursor:pointer;font-weight:600;font-family:'Noto Sans TC',sans-serif">🔄 同步 Sheets</button>
+    </div>
     <div class="pscroll" id="planScroll"></div>
   </div>
 
@@ -322,9 +308,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="sh-body">
       <div class="fl"><label class="flbl">日期</label><input class="finp" id="dpDate" type="date"></div>
       <div class="fl"><label class="flbl">主科</label><input class="finp" id="dpMain" placeholder="例：刑法總則"></div>
-      <div class="fl"><label class="flbl">副科（無填 —）</label><input class="finp" id="dpSub" placeholder="例：行政法 或 —"></div>
-      <div class="fl"><label class="flbl">建議時數</label><input class="finp" id="dpHrs" placeholder="例：2–3h"></div>
-      <div class="fl"><label class="flbl">備註（衝刺日填 🔥）</label><input class="finp" id="dpNote" placeholder="可空白"></div>
+      <div class="fl"><label class="flbl">副科1（無填 —）</label><input class="finp" id="dpSub" placeholder="例：行政法 或 —"></div>
+      <div class="fl"><label class="flbl">副科2（無填 —）</label><input class="finp" id="dpSub2" placeholder="例：刑法 或 —"></div>
       <div class="br">
         <button class="btn btn-g" onclick="saveDp()">儲存</button>
         <button class="btn btn-del" id="dpDelBtn" onclick="delDp()">刪除</button>
@@ -469,15 +454,13 @@ function openDpSheet(idx){
     document.getElementById('dpDate').value=todayStr();
     document.getElementById('dpMain').value='';
     document.getElementById('dpSub').value='—';
-    document.getElementById('dpHrs').value='';
-    document.getElementById('dpNote').value='';
+    document.getElementById('dpSub2').value='—';
   } else {
     const p=S.plan[idx];
     document.getElementById('dpDate').value=p.date;
     document.getElementById('dpMain').value=p.main;
-    document.getElementById('dpSub').value=p.sub;
-    document.getElementById('dpHrs').value=p.hrs;
-    document.getElementById('dpNote').value=p.note;
+    document.getElementById('dpSub').value=p.sub||'—';
+    document.getElementById('dpSub2').value=p.sub2||'—';
   }
   openSheet('dpSh');
 }
@@ -489,14 +472,14 @@ function saveDp(){
     date,dow:dateDow(date),
     main,mainDone:false,
     sub:document.getElementById('dpSub').value.trim()||'—',subDone:false,
-    hrs:document.getElementById('dpHrs').value.trim(),
-    note:document.getElementById('dpNote').value.trim()
+    sub2:document.getElementById('dpSub2').value.trim()||'—',sub2Done:false,
   };
   if(dpEditIdx===-1){
     S.plan.push(entry);
   } else {
     entry.mainDone=S.plan[dpEditIdx].mainDone;
     entry.subDone=S.plan[dpEditIdx].subDone;
+    entry.sub2Done=S.plan[dpEditIdx].sub2Done||false;
     S.plan[dpEditIdx]=entry;
   }
   S.plan.sort((a,b)=>a.date.localeCompare(b.date));
@@ -590,15 +573,20 @@ function renderToday(){
   }
   const mainLog=logs.find(l=>l.subjectName===todayPlan.main);
   const subLog=logs.find(l=>l.subjectName===todayPlan.sub);
+  const sub2Log=logs.find(l=>l.subjectName===todayPlan.sub2);
   const engLog=logs.find(l=>l.subjectName==='英文');
   let h='';
-  if(todayPlan.main!=='—'){
+  if(todayPlan.main&&todayPlan.main!=='—'&&todayPlan.main!=='─'){
     const ok=!!mainLog;
     h+=`<div><div class="sr"><div class="sdot" style="background:var(--red)"></div><div class="sname">${todayPlan.main}</div><span class="pill pill-main" style="margin-right:5px">主科</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&mainLog?`<div class="done-range">📖 ${mainLog.range}</div>`:''}</div>`;
   }
-  if(todayPlan.sub!=='—'){
+  if(todayPlan.sub&&todayPlan.sub!=='—'){
     const ok=!!subLog;
-    h+=`<div><div class="sr"><div class="sdot" style="background:var(--blue)"></div><div class="sname">${todayPlan.sub}</div><span class="pill pill-sub" style="margin-right:5px">副科</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&subLog?`<div class="done-range">📖 ${subLog.range}</div>`:''}</div>`;
+    h+=`<div><div class="sr"><div class="sdot" style="background:var(--blue)"></div><div class="sname">${todayPlan.sub}</div><span class="pill pill-sub" style="margin-right:5px">副科1</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&subLog?`<div class="done-range">📖 ${subLog.range}</div>`:''}</div>`;
+  }
+  if(todayPlan.sub2&&todayPlan.sub2!=='—'){
+    const ok=!!sub2Log;
+    h+=`<div><div class="sr"><div class="sdot" style="background:var(--orange)"></div><div class="sname">${todayPlan.sub2}</div><span class="pill" style="background:var(--orange-dim);color:var(--orange);margin-right:5px">副科2</span><div class="pill ${ok?'pill-done':'pill-todo'}">${ok?'✓ 完成':'待讀'}</div></div>${ok&&sub2Log?`<div class="done-range">📖 ${sub2Log.range}</div>`:''}</div>`;
   }
   const engOk=!!engLog;
   h+=`<div><div class="sr"><div class="sdot" style="background:var(--purple)"></div><div class="sname">英文練習</div><span class="pill pill-eng" style="margin-right:5px">英文</span><div class="pill ${engOk?'pill-done':'pill-todo'}">${engOk?'✓ 完成':'待讀'}</div></div>${engOk&&engLog?`<div class="done-range">📖 ${engLog.range}</div>`:''}</div>`;
@@ -634,7 +622,7 @@ function renderDaily(el){
             </div>
             <div class="dp-info">
               <div class="dp-main-name">${p.main} ${p.note==='🔥'?'<span class="tag tag-fire">🔥</span>':''}</div>
-              <div class="dp-sub-name">${p.sub!=='—'?`副：${p.sub}　`:''}${p.hrs}</div>
+              <div class="dp-sub-name">${p.sub&&p.sub!=='—'?`副1：${p.sub}　`:''}${p.sub2&&p.sub2!=='—'?`副2：${p.sub2}　`:''}</div>
             </div>
             <div class="dp-badges">
               <button class="dp-check ${p.mainDone?'on':''}" onclick="toggleDpDone(${i},'main')">${p.mainDone?'✓':''}</button>
@@ -651,6 +639,11 @@ function toggleDpDone(i,field){
   S.plan[i][field+'Done']=!S.plan[i][field+'Done'];
   save();renderPlan(curPlanTab);
   if(curPg==='today')renderToday();
+  // Sync to Sheets
+  if(S.plan[i].row){
+    const colMap={main:4,sub:6,sub2:8};
+    gasPost({action:'updateDone',row:S.plan[i].row,field,value:S.plan[i][field+'Done']}).catch(()=>{});
+  }
 }
 
 function renderWeekly(el){
@@ -736,10 +729,11 @@ function initChat(){
   if(!tp){msg+='今天尚未安排計畫。可以到「計畫」頁新增，或直接告訴我你今天讀了什麼！';}
   else{
     msg+=`今天週${tp.dow}，建議讀書 ${tp.hrs}${tp.note==='🔥'?' — 衝刺日 💪':''}。\n\n今日計畫：\n`;
-    if(tp.main!=='—')msg+=`${done.has(tp.main)?'✅':'📌'} 主科：${tp.main}\n`;
-    if(tp.sub!=='—')msg+=`${done.has(tp.sub)?'✅':'📌'} 副科：${tp.sub}\n`;
+    if(tp.main&&tp.main!=='—')msg+=`${done.has(tp.main)?'✅':'📌'} 主科：${tp.main}\n`;
+    if(tp.sub&&tp.sub!=='—')msg+=`${done.has(tp.sub)?'✅':'📌'} 副科1：${tp.sub}\n`;
+    if(tp.sub2&&tp.sub2!=='—')msg+=`${done.has(tp.sub2)?'✅':'📌'} 副科2：${tp.sub2}\n`;
     msg+=`${done.has('英文')?'✅':'📌'} 英文練習\n`;
-    const pending=[tp.main,tp.sub,'英文'].filter(s=>s!=='—'&&!done.has(s));
+    const pending=[tp.main,tp.sub,tp.sub2,'英文'].filter(s=>s&&s!=='—'&&!done.has(s));
     msg+=pending.length?`\n還剩 ${pending.length} 個沒完成，加油！讀完跟我說 😊`:`\n今天全完成了！🎉`;
   }
   addMsg('ai',msg);updateChips();
@@ -748,7 +742,7 @@ function updateChips(){
   const today=todayStr();const tp=S.plan.find(p=>p.date===today);
   const done=new Set(S.logs.filter(l=>l.date===today).map(l=>l.subjectName));
   const chips=[];
-  if(tp)[tp.main,tp.sub,'英文'].filter(s=>s!=='—'&&!done.has(s)).slice(0,2).forEach(s=>chips.push(`我讀完${s}了`));
+  if(tp)[tp.main,tp.sub,tp.sub2,'英文'].filter(s=>s&&s!=='—'&&!done.has(s)).slice(0,3).forEach(s=>chips.push(`我讀完${s}了`));
   chips.push('今天進度？','明天讀什麼？','幫我加油 💪');
   document.getElementById('qchips').innerHTML=chips.map(c=>`<div class="chip" onclick="chipTap('${c}')">${c}</div>`).join('');
 }
@@ -772,18 +766,22 @@ async function send(){
   const today=todayStr();const tp=S.plan.find(p=>p.date===today);
   const logs=S.logs.filter(l=>l.date===today);const done=new Set(logs.map(l=>l.subjectName));
   const sys=`你是親切的法律考試讀書助理，用繁體中文回覆，像朋友一樣簡潔溫暖。
-今天 ${today}（週${DLABELS[DOW]}）計畫：主科：${tp?.main||'未安排'}${tp?.main&&done.has(tp.main)?'（完成）':''}，副科：${tp?.sub||'無'}${tp?.sub&&done.has(tp.sub)?'（完成）':''}，英文：${done.has('英文')?'完成':'未完成'}，建議：${tp?.hrs||'─'}${tp?.note==='🔥'?'（衝刺日）':''}
+今天 ${today}（週${DLABELS[DOW]}）計畫：主科：${tp?.main||'未安排'}${tp?.main&&done.has(tp.main)?'（完成）':''}，副科1：${tp?.sub||'無'}${tp?.sub&&done.has(tp.sub)?'（完成）':''}，副科2：${tp?.sub2||'無'}${tp?.sub2&&done.has(tp.sub2)?'（完成）':''}，英文：${done.has('英文')?'完成':'未完成'}
 【記錄格式】當用戶說讀完某科目，在回覆結尾加：[RECORD:科目名稱|讀的範圍|備註]，備註可空。給鼓勵並說明還剩什麼。`;
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[...S.chat.slice(-12).map(m=>({role:m.role,content:m.content})),{role:'user',content:text}]})});
-    const data=await r.json();hideTyping();
-    const reply=data.content?.[0]?.text||'抱歉，請再試一次 🙏';
+    const r=await gasPost({action:'chat',system:sys,messages:[...S.chat.slice(-12).map(m=>({role:m.role,content:m.content})),{role:'user',content:text}]});
+    hideTyping();
+    const reply=r.content?.[0]?.text||'抱歉，請再試一次 🙏';
     const re=/\[RECORD:([^|]+)\|([^|]*)\|([^\]]*)\]/g;let m;
     while((m=re.exec(reply))!==null){
       const[,sname,range,note]=m;
       if(range.trim()){const n=new Date();const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
         S.logs=S.logs.filter(l=>!(l.subjectName===sname.trim()&&l.date===today));
-        S.logs.unshift({id:Date.now(),subjectName:sname.trim(),range:range.trim(),note:note.trim(),date:today,time:t});save();}
+        const logEntry={id:Date.now(),subjectName:sname.trim(),range:range.trim(),note:note.trim(),date:today,time:t};
+        S.logs.unshift(logEntry);save();
+        // Write to Sheets
+        gasPost({action:'addLog',date:today,time:t,subject:sname.trim(),range:range.trim(),note:note.trim()}).catch(()=>{});
+      }
     }
     addMsg('ai',reply.replace(/\[RECORD:[^\]]+\]/g,'').trim());
     updateChips();if(curPg==='today')renderToday();
@@ -793,101 +791,65 @@ async function send(){
 function ck(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
 function ag(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
 
-// ═══ GOOGLE DRIVE ═══
-const CLIENT_ID='958195742308-v5579d34r8imr658bnaf24un1d78jqln.apps.googleusercontent.com';
-const SCOPES='https://www.googleapis.com/auth/drive.appdata';
-const FILE_NAME='study-assistant-backup.json';
-let tokenClient=null, accessToken=null;
+// ═══ GAS SYNC ═══
+const GAS_URL='https://script.google.com/macros/s/AKfycbxRZBspco5RaonGVnd0SrsXqV-h08nVWvJg1ju-vAQjiWvlNsFr6YUJB7C_MV017wcxTg/exec';
+const DLABELS_L=['日','一','二','三','四','五','六'];
 
-function gdriveInit(){
-  if(!window.google)return;
-  tokenClient=google.accounts.oauth2.initTokenClient({
-    client_id:CLIENT_ID,
-    scope:SCOPES,
-    callback:(resp)=>{
-      if(resp.error)return;
-      accessToken=resp.access_token;
-      localStorage.setItem('gdriveToken',accessToken);
-      updateGdriveUI(true);
-      gdriveLoad();
+async function gasGet(action){
+  const r=await fetch(GAS_URL+'?action='+action);
+  return r.json();
+}
+async function gasPost(data){
+  const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
+  return r.json();
+}
+
+async function syncFromGAS(){
+  const btn=document.getElementById('gasSyncBtn');
+  btn.textContent='⟳ 同步中...';btn.disabled=true;
+  try{
+    // DailyPlan
+    const dpRes=await gasGet('getDailyPlan');
+    if(dpRes.data){
+      dpRes.data.forEach(r=>{
+        const entry={
+          row:r.row,date:r.date,dow:r.dow,
+          main:r.main||'─',mainDone:r.mainDone||false,
+          sub:r.sub||'—',subDone:r.subDone||false,
+          sub2:r.sub2||'—',sub2Done:r.sub2Done||false,
+        };
+        const idx=S.plan.findIndex(p=>p.date===r.date);
+        if(idx>=0){entry.mainDone=S.plan[idx].mainDone;entry.subDone=S.plan[idx].subDone;entry.sub2Done=S.plan[idx].sub2Done||false;S.plan[idx]=entry;}
+        else S.plan.push(entry);
+      });
+      S.plan.sort((a,b)=>a.date.localeCompare(b.date));
     }
-  });
-  const saved=localStorage.getItem('gdriveToken');
-  if(saved){accessToken=saved;updateGdriveUI(true);}
-}
-
-function gdriveLogin(){
-  if(!tokenClient){alert('Google 登入尚未載入，請稍後再試');return;}
-  tokenClient.requestAccessToken();
-}
-function gdriveLogout(){
-  accessToken=null;localStorage.removeItem('gdriveToken');
-  updateGdriveUI(false);
-}
-
-function updateGdriveUI(loggedIn){
-  const bar=document.getElementById('gdriveBar');
-  const status=document.getElementById('gdriveStatus');
-  bar.innerHTML='';
-  const s=document.createElement('span');s.className='gdrive-status';
-  if(loggedIn){
-    s.textContent='☁️ 已連結 Google Drive';
-    const syncBtn=document.createElement('button');syncBtn.className='gdrive-btn gdrive-sync';syncBtn.textContent='⬆ 備份';syncBtn.onclick=gdriveSave;
-    const loadBtn=document.createElement('button');loadBtn.className='gdrive-btn gdrive-login';loadBtn.textContent='⬇ 還原';loadBtn.onclick=gdriveLoad;
-    const outBtn=document.createElement('button');outBtn.className='gdrive-btn gdrive-out';outBtn.textContent='登出';outBtn.onclick=gdriveLogout;
-    bar.appendChild(s);bar.appendChild(syncBtn);bar.appendChild(loadBtn);bar.appendChild(outBtn);
-  } else {
-    s.textContent='☁️ 未連結 Google Drive';
-    const loginBtn=document.createElement('button');loginBtn.className='gdrive-btn gdrive-login';loginBtn.textContent='🔗 連結';loginBtn.onclick=gdriveLogin;
-    bar.appendChild(s);bar.appendChild(loginBtn);
+    // Weekly
+    const wkRes=await gasGet('getWeekly');
+    if(wkRes.data){
+      wkRes.data.forEach(col=>{
+        const idx=S.weekly.findIndex(w=>w.col===col.col||w.col.replace(/[🔥🌿]/g,'')===col.col.replace(/[🔥🌿]/g,''));
+        if(idx>=0&&col.rows.length)S.weekly[idx].rows=col.rows;
+      });
+    }
+    // English
+    const engRes=await gasGet('getEnglish');
+    if(engRes.data){
+      engRes.data.forEach(e=>{
+        const idx=S.english.findIndex(x=>x.day===e.day);
+        if(idx>=0)S.english[idx]=e;else S.english.push(e);
+      });
+      S.english.sort((a,b)=>a.day-b.day);
+    }
+    save();renderToday();renderPlan(curPlanTab);
+    btn.textContent='✅ 同步完成';
+    setTimeout(()=>{btn.textContent='🔄 同步 Sheets';btn.disabled=false;},2000);
+  }catch(e){
+    btn.textContent='⚠️ 失敗';
+    setTimeout(()=>{btn.textContent='🔄 同步 Sheets';btn.disabled=false;},2000);
   }
 }
 
-async function findFile(){
-  const r=await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%22'+FILE_NAME+'%22',{headers:{Authorization:'Bearer '+accessToken}});
-  const d=await r.json();
-  return d.files&&d.files.length?d.files[0].id:null;
-}
-
-async function gdriveSave(){
-  if(!accessToken){alert('請先連結 Google Drive');return;}
-  const status=document.getElementById('gdriveStatus');
-  const origText=status.textContent;
-  status.innerHTML='<span class="sync-spin">⟳</span> 備份中...';
-  try{
-    const json=JSON.stringify(S);
-    const fileId=await findFile();
-    let url,method;
-    if(fileId){url=`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;method='PATCH';}
-    else{
-      const meta=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({name:FILE_NAME,parents:['appDataFolder']})});
-      const mj=await meta.json();
-      url=`https://www.googleapis.com/upload/drive/v3/files/${mj.id}?uploadType=media`;method='PATCH';
-    }
-    await fetch(url,{method,headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:json});
-    status.textContent='☁️ 備份成功 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
-    setTimeout(()=>updateGdriveUI(true),2000);
-  }catch(e){status.textContent='⚠️ 備份失敗';setTimeout(()=>updateGdriveUI(true),2000);}
-}
-
-async function gdriveLoad(){
-  if(!accessToken)return;
-  const status=document.getElementById('gdriveStatus');
-  status.innerHTML='<span class="sync-spin">⟳</span> 還原中...';
-  try{
-    const fileId=await findFile();
-    if(!fileId){status.textContent='☁️ 雲端尚無備份';setTimeout(()=>updateGdriveUI(true),2000);return;}
-    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:'Bearer '+accessToken}});
-    const remote=await r.json();
-    S=remote;save();
-    status.textContent='☁️ 還原成功！';
-    setTimeout(()=>{updateGdriveUI(true);renderToday();if(curPg==='log')renderLog();},1500);
-  }catch(e){status.textContent='⚠️ 還原失敗';setTimeout(()=>updateGdriveUI(true),2000);}
-}
-
-window.addEventListener('load',()=>{
-  setTimeout(gdriveInit,1000);
-});
 
 renderToday();
 checkOnboarding();
