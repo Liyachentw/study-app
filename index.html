@@ -769,6 +769,7 @@ function renderLog(){
         <div class="sdot" style="background:${COLORS[l.subjectName]||'var(--gold)'};width:8px;height:8px;border-radius:50%"></div>
         <div class="log-sname">${l.subjectName}</div>
         <div class="log-meta">${l.date} ${l.time}</div>
+        <button onclick="delLog(${l.id})" style="margin-left:6px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:.8rem;padding:2px 4px">✕</button>
       </div>
       <div class="log-range">📖 ${l.range}</div>
       ${l.note?`<div class="log-note">💬 ${l.note}</div>`:''}
@@ -776,6 +777,13 @@ function renderLog(){
 }
 
 
+
+function delLog(id){
+  if(!confirm('刪除這筆紀錄？'))return;
+  S.logs=S.logs.filter(l=>l.id!==id);
+  save();renderLog();
+  if(curPg==='today')renderToday();
+}
 
 // ═══ GAS SYNC ═══
 const GAS_URL='https://script.google.com/macros/s/AKfycbxRZBspco5RaonGVnd0SrsXqV-h08nVWvJg1ju-vAQjiWvlNsFr6YUJB7C_MV017wcxTg/exec';
