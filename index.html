@@ -769,9 +769,11 @@ async function send(){
 今天 ${today}（週${DLABELS[DOW]}）計畫：主科：${tp?.main||'未安排'}${tp?.main&&done.has(tp.main)?'（完成）':''}，副科1：${tp?.sub||'無'}${tp?.sub&&done.has(tp.sub)?'（完成）':''}，副科2：${tp?.sub2||'無'}${tp?.sub2&&done.has(tp.sub2)?'（完成）':''}，英文：${done.has('英文')?'完成':'未完成'}
 【記錄格式】當用戶說讀完某科目，在回覆結尾加：[RECORD:科目名稱|讀的範圍|備註]，備註可空。給鼓勵並說明還剩什麼。`;
   try{
-    const r=await gasPost({action:'chat',system:sys,messages:[...S.chat.slice(-12).map(m=>({role:m.role,content:m.content})),{role:'user',content:text}]});
+    const raw=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'chat',system:sys,messages:[...S.chat.slice(-12).map(m=>({role:m.role,content:m.content})),{role:'user',content:text}]})});
+    const r=await raw.json();
     hideTyping();
-    const reply=r.content?.[0]?.text||'抱歉，請再試一次 🙏';
+    // GAS returns raw Claude API response
+    const reply=(r.content?.[0]?.text)||(r.error?.message)||'抱歉，請再試一次 🙏';
     const re=/\[RECORD:([^|]+)\|([^|]*)\|([^\]]*)\]/g;let m;
     while((m=re.exec(reply))!==null){
       const[,sname,range,note]=m;
