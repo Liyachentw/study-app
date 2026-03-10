@@ -728,7 +728,7 @@ function initChat(){
   let msg='嗨！我是你的法律讀書助理 ⚖️\n\n';
   if(!tp){msg+='今天尚未安排計畫。可以到「計畫」頁新增，或直接告訴我你今天讀了什麼！';}
   else{
-    msg+=`今天週${tp.dow}，建議讀書 ${tp.hrs}${tp.note==='🔥'?' — 衝刺日 💪':''}。\n\n今日計畫：\n`;
+    msg+=`今天週${tp.dow}。\n\n今日計畫：\n`;
     if(tp.main&&tp.main!=='—')msg+=`${done.has(tp.main)?'✅':'📌'} 主科：${tp.main}\n`;
     if(tp.sub&&tp.sub!=='—')msg+=`${done.has(tp.sub)?'✅':'📌'} 副科1：${tp.sub}\n`;
     if(tp.sub2&&tp.sub2!=='—')msg+=`${done.has(tp.sub2)?'✅':'📌'} 副科2：${tp.sub2}\n`;
