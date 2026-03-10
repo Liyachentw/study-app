@@ -631,21 +631,34 @@ function renderDaily(el){
     `<div style="padding:0 0 8px;display:flex;justify-content:flex-end"><button class="sh-btn" onclick="openDpSheet(-1)" style="font-size:.78rem">＋ 新增計畫</button></div>`+
     S.plan.map((p,i)=>{
       const isToday=p.date===today;
+      const hasSub=p.sub&&p.sub!=='—';
+      const hasSub2=p.sub2&&p.sub2!=='—';
       return `<div class="card" style="${isToday?'border-color:var(--gold)':''};margin-bottom:8px">
-        <div class="dp-wrap">
-          <div class="dp-row">
-            <div class="dp-date-box">
+        <div class="dp-wrap" style="padding:10px 12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:${hasSub||hasSub2?'8px':'0'}">
+            <div class="dp-date-box" style="min-width:44px">
               <div class="dp-d" style="color:${isToday?'var(--gold)':'var(--text)'}">${p.date.slice(5).replace('-','/')}</div>
               <div class="dp-dow">週${p.dow}</div>
             </div>
-            <div class="dp-info">
-              <div class="dp-main-name">${p.main} ${p.note==='🔥'?'<span class="tag tag-fire">🔥</span>':''}</div>
-              <div class="dp-sub-name">${p.sub&&p.sub!=='—'?`副1：${p.sub}　`:''}${p.sub2&&p.sub2!=='—'?`副2：${p.sub2}　`:''}</div>
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:${hasSub||hasSub2?'6px':'0'}">
+                <button class="dp-check ${p.mainDone?'on':''}" onclick="toggleDpDone(${i},'main')" style="flex-shrink:0">${p.mainDone?'✓':''}</button>
+                <span style="font-size:.88rem;font-weight:600;${p.mainDone?'text-decoration:line-through;opacity:.5':''}">${p.main}</span>
+                <span style="font-size:.7rem;padding:1px 6px;border-radius:4px;background:var(--red-dim);color:var(--red)">主</span>
+                ${p.note==='🔥'?'<span class="tag tag-fire">🔥</span>':''}
+              </div>
+              ${hasSub?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:${hasSub2?'6px':'0'}">
+                <button class="dp-check ${p.subDone?'on':''}" onclick="toggleDpDone(${i},'sub')" style="flex-shrink:0">${p.subDone?'✓':''}</button>
+                <span style="font-size:.84rem;${p.subDone?'text-decoration:line-through;opacity:.5':''}">${p.sub}</span>
+                <span style="font-size:.7rem;padding:1px 6px;border-radius:4px;background:var(--blue-dim);color:var(--blue)">副1</span>
+              </div>`:''}
+              ${hasSub2?`<div style="display:flex;align-items:center;gap:6px">
+                <button class="dp-check ${p.sub2Done?'on':''}" onclick="toggleDpDone(${i},'sub2')" style="flex-shrink:0">${p.sub2Done?'✓':''}</button>
+                <span style="font-size:.84rem;${p.sub2Done?'text-decoration:line-through;opacity:.5':''}">${p.sub2}</span>
+                <span style="font-size:.7rem;padding:1px 6px;border-radius:4px;background:var(--orange-dim);color:var(--orange)">副2</span>
+              </div>`:''}
             </div>
-            <div class="dp-badges">
-              <button class="dp-check ${p.mainDone?'on':''}" onclick="toggleDpDone(${i},'main')">${p.mainDone?'✓':''}</button>
-              <button class="dp-edit" onclick="openDpSheet(${i})">✎</button>
-            </div>
+            <button class="dp-edit" onclick="openDpSheet(${i})">✎</button>
           </div>
         </div>
       </div>`;
