@@ -868,7 +868,10 @@ function toggleHabit(id){
   // Sync to Sheets
   const habit=S.habits.find(h=>h.id===id);
   if(habit){
-    gasPost({action:'addHabitLog',date:today,name:habit.name,done:S.habitDone[today][id]}).catch(()=>{});
+    const payload={action:'addHabitLog',date:today,name:habit.name,done:S.habitDone[today][id]};
+    gasPost(payload)
+      .then(r=>alert('✅ 同步成功：'+JSON.stringify(r)))
+      .catch(e=>alert('❌ 錯誤：'+e.message));
   }
 }
 
