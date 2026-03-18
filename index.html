@@ -868,10 +868,7 @@ function toggleHabit(id){
   // Sync to Sheets
   const habit=S.habits.find(h=>h.id===id);
   if(habit){
-    const payload={action:'addHabitLog',date:today,name:habit.name,done:S.habitDone[today][id]};
-    gasPost(payload)
-      .then(r=>alert('✅ 同步成功：'+JSON.stringify(r)))
-      .catch(e=>alert('❌ 錯誤：'+e.message));
+    gasPost({action:'addHabitLog',date:today,name:habit.name,done:S.habitDone[today][id]}).catch(()=>{});
   }
 }
 
@@ -911,7 +908,7 @@ function delHabit(i){
 }
 
 // ═══ GAS SYNC ═══
-const GAS_URL='https://script.google.com/macros/s/AKfycbxRZBspco5RaonGVnd0SrsXqV-h08nVWvJg1ju-vAQjiWvlNsFr6YUJB7C_MV017wcxTg/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbw6JwrOUrm03yhnDIXTJJc28eTwjw50Xj2q7Dx_wCTnaceYbvNWI1RSNmmPXFU3SNvtcQ/exec';
 const DLABELS_L=['日','一','二','三','四','五','六'];
 
 async function gasGet(action){
