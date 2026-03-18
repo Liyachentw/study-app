@@ -709,8 +709,11 @@ function renderDaily(el){
   // Scroll to today
   setTimeout(()=>{
     const el=document.getElementById('todayCard');
-    if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
-  },50);
+    if(el){
+      const container=document.getElementById('planScroll');
+      if(container) container.scrollTop=el.offsetTop-10;
+    }
+  },80);
 }
 
 function toggleDpDone(i,field){
