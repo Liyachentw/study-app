@@ -257,6 +257,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="pscroll" id="planScroll"></div>
   </div>
 
+  <!-- HABIT -->
+  <div class="page" id="pg-habit">
+    <div class="pscroll">
+      <div style="height:10px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:.78rem;color:var(--text2)" id="habitDateLbl"></div>
+        <div style="display:flex;gap:6px">
+          <button class="sh-btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="resetHabits()">↺ 預設</button>
+          <button class="sh-btn" onclick="openHabitAddSheet()">＋ 新增習慣</button>
+        </div>
+      </div>
+      <div id="habitList"></div>
+    </div>
+  </div>
+
   <!-- LOG -->
   <div class="page" id="pg-log">
     <div class="pscroll">
@@ -272,6 +287,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div class="bnav">
   <button class="nbtn active" id="nb-today" onclick="sw('today')"><span class="ico">🏠</span><span class="lbl">今日</span></button>
   <button class="nbtn" id="nb-plan" onclick="sw('plan')"><span class="ico">📋</span><span class="lbl">計畫</span></button>
+  <button class="nbtn" id="nb-habit" onclick="sw('habit')"><span class="ico">⚡</span><span class="lbl">習慣</span></button>
   <button class="nbtn" id="nb-log" onclick="sw('log')"><span class="ico">📝</span><span class="lbl">紀錄</span></button>
 </div>
 </div>
@@ -371,6 +387,22 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
+<!-- Habit Add Sheet -->
+<div class="sheet-ov" id="habitSh" onclick="soClose(event,'habitSh')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-ttl">⚡ 新增習慣</div>
+    <div class="sh-body">
+      <div class="fl"><label class="flbl">習慣名稱</label><input class="finp" id="habitName" placeholder="例：早起、運動30分鐘、複習筆記"></div>
+      <div class="fl"><label class="flbl">圖示（emoji）</label><input class="finp" id="habitIcon" placeholder="例：🌅 💪 📖" maxlength="4"></div>
+      <div class="br">
+        <button class="btn btn-g" onclick="saveHabit()">新增</button>
+        <button class="btn btn-gh" onclick="closeSheet('habitSh')">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══ EMPTY DEFAULTS ═══
 const EMPTY_WEEKLY=[
@@ -386,8 +418,17 @@ let S=JSON.parse(localStorage.getItem('lawApp4')||'null')||{
   weekly:JSON.parse(JSON.stringify(EMPTY_WEEKLY)),
   english:[],
   engDone:{},schedules:[],logs:[],chat:[],
+  habits:[],habitDone:{},
   onboarded:false
 };
+if(!S.habits) S.habits=[
+  {id:'h1', name:'早起（08:00以前）', icon:'🌅'},
+  {id:'h2', name:'運動 30min', icon:'💪'},
+  {id:'h3', name:'00:00 前就寢', icon:'😴'},
+  {id:'h4', name:'喝 1500cc 的水', icon:'💧'},
+  {id:'h5', name:'吃兩顆水煮蛋', icon:'🥚'},
+];
+if(!S.habitDone) S.habitDone={};
 function save(){localStorage.setItem('lawApp4',JSON.stringify(S));}
 
 // ═══ ONBOARDING ═══
@@ -436,6 +477,7 @@ function sw(name){
   curPg=name;
   if(name==='today')renderToday();
   if(name==='log')renderLog();
+  if(name==='habit')renderHabits();
   if(name==='plan')renderPlan('daily');
 
 }
@@ -633,7 +675,7 @@ function renderDaily(el){
       const isToday=p.date===today;
       const hasSub=p.sub&&p.sub!=='—';
       const hasSub2=p.sub2&&p.sub2!=='—';
-      return `<div class="card" style="${isToday?'border-color:var(--gold)':''};margin-bottom:8px">
+      return `<div class="card" ${isToday?'id="todayCard"':''} style="${isToday?'border-color:var(--gold)':''};margin-bottom:8px">
         <div class="dp-wrap" style="padding:10px 12px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:${hasSub||hasSub2?'8px':'0'}">
             <div class="dp-date-box" style="min-width:44px">
@@ -664,6 +706,11 @@ function renderDaily(el){
       </div>`;
     }).join('')+
     '<div style="height:16px"></div>';
+  // Scroll to today
+  setTimeout(()=>{
+    const el=document.getElementById('todayCard');
+    if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+  },50);
 }
 
 function toggleDpDone(i,field){
@@ -783,6 +830,78 @@ function delLog(id){
   S.logs=S.logs.filter(l=>l.id!==id);
   save();renderLog();
   if(curPg==='today')renderToday();
+}
+
+// ═══ HABITS ═══
+function renderHabits(){
+  const today=todayStr();
+  document.getElementById('habitDateLbl').textContent=today+' 的習慣打卡';
+  const el=document.getElementById('habitList');
+  if(!S.habits.length){
+    el.innerHTML=`<div class="card"><div class="empty"><span class="empty-i">⚡</span>還沒有習慣項目<br>點右上角新增</div></div>`;
+    return;
+  }
+  const done=S.habitDone[today]||{};
+  el.innerHTML=S.habits.map((h,i)=>{
+    const isDone=!!done[h.id];
+    return `<div class="card" style="margin-bottom:8px;${isDone?'border-color:var(--green)':''}">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px">
+        <div style="font-size:1.6rem;width:36px;text-align:center">${h.icon||'⚡'}</div>
+        <div style="flex:1">
+          <div style="font-size:.92rem;font-weight:600;${isDone?'text-decoration:line-through;opacity:.5':''}">${h.name}</div>
+        </div>
+        <button onclick="toggleHabit('${h.id}')" style="width:34px;height:34px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'var(--border)'};background:${isDone?'var(--green)':'transparent'};cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s">${isDone?'✓':''}</button>
+        <button onclick="delHabit(${i})" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:.8rem;padding:4px;margin-left:4px">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleHabit(id){
+  const today=todayStr();
+  if(!S.habitDone[today]) S.habitDone[today]={};
+  S.habitDone[today][id]=!S.habitDone[today][id];
+  save();renderHabits();
+  // Sync to Sheets
+  const habit=S.habits.find(h=>h.id===id);
+  if(habit){
+    gasPost({action:'addHabitLog',date:today,name:habit.name,done:S.habitDone[today][id]}).catch(()=>{});
+  }
+}
+
+function openHabitAddSheet(){
+  document.getElementById('habitName').value='';
+  document.getElementById('habitIcon').value='';
+  openSheet('habitSh');
+}
+
+function saveHabit(){
+  const name=document.getElementById('habitName').value.trim();
+  if(!name){alert('請填寫習慣名稱');return;}
+  const icon=document.getElementById('habitIcon').value.trim()||'⚡';
+  S.habits.push({id:Date.now().toString(),name,icon});
+  save();closeSheet('habitSh');renderHabits();
+}
+
+function resetHabits(){
+  if(!confirm('重設為預設習慣？（現有習慣會被清除）'))return;
+  S.habits=[
+    {id:'h1', name:'早起（08:00以前）', icon:'🌅'},
+    {id:'h2', name:'運動 30min', icon:'💪'},
+    {id:'h3', name:'00:00 前就寢', icon:'😴'},
+    {id:'h4', name:'喝 1500cc 的水', icon:'💧'},
+    {id:'h5', name:'吃兩顆水煮蛋', icon:'🥚'},
+  ];
+  save();renderHabits();
+}
+
+function delHabit(i){
+  if(!confirm('刪除「'+S.habits[i].name+'」？'))return;
+  const id=S.habits[i].id;
+  S.habits.splice(i,1);
+  // Clean up done records for this habit
+  Object.keys(S.habitDone).forEach(date=>{delete S.habitDone[date][id];});
+  save();renderHabits();
 }
 
 // ═══ GAS SYNC ═══
